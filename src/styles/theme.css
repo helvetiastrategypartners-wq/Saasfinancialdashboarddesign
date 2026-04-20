@@ -1,0 +1,332 @@
+/* Tailwind v4 custom dark variant */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Design tokens — mode clair ────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+
+  --font-size: 16px;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+
+  /* Couleurs de base */
+  --background: #ffffff;
+  --foreground: oklch(0.145 0 0);
+
+  /* Composants */
+  --card: #ffffff;
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+
+  /* Primaire / Secondaire */
+  --primary: #030213;
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.0058 264.53);
+  --secondary-foreground: #030213;
+
+  /* Neutres */
+  --muted: #ececf0;
+  --muted-foreground: #717182;
+  --accent: #e9ebef;
+  --accent-foreground: #030213;
+
+  /* Sémantique */
+  --destructive: #d4183d;
+  --destructive-foreground: #ffffff;
+
+  /* Champs de formulaire */
+  --border: rgb(0 0 0 / 0.1);
+  --input: transparent;
+  --input-background: #f3f3f5;
+  --switch-background: #cbced4;
+
+  /* Focus */
+  --ring: oklch(0.708 0 0);
+
+  /* Graphiques */
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+
+  /* Rayon de bordure */
+  --radius: 0.625rem;
+
+  /* Sidebar */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #030213;
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Palette Rouge & Bleu */
+  --accent-red: #dc2626;
+  --accent-red-light: #ef4444;
+  --accent-red-hover: #b91c1c;
+  --accent-red-muted: rgb(220 38 38 / 0.08);
+
+  --accent-blue: #3b82f6;
+  --accent-blue-light: #60a5fa;
+  --accent-blue-hover: #2563eb;
+  --accent-blue-muted: rgb(59 130 246 / 0.08);
+
+  /* Indicateurs financiers */
+  --positive: #dc2626;
+  --positive-glow: rgb(220 38 38 / 0.08);
+  --negative: #dc2626;
+  --negative-glow: rgb(220 38 38 / 0.08);
+  --neutral: #71717a;
+  --neutral-glow: rgb(113 113 122 / 0.08);
+
+  /* Glassmorphisme */
+  --glass-bg: rgb(255 255 255 / 0.6);
+  --glass-border: rgb(0 0 0 / 0.08);
+  --glass-hover: rgb(240 240 240 / 0.8);
+}
+
+/* ─── Design tokens — mode sombre ───────────────────────────────────────── */
+.dark {
+  color-scheme: dark;
+
+  /* Couleurs de base */
+  --background: #000000;
+  --foreground: #ffffff;
+
+  /* Composants */
+  --card: rgb(20 20 20 / 0.4);
+  --card-foreground: #ffffff;
+  --popover: rgb(15 15 15 / 0.95);
+  --popover-foreground: #ffffff;
+
+  /* Primaire / Secondaire */
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: rgb(30 30 30 / 0.5);
+  --secondary-foreground: #ffffff;
+
+  /* Neutres */
+  --muted: rgb(40 40 40 / 0.3);
+  --muted-foreground: #a3a3a3;
+  --accent: rgb(30 30 30 / 0.5);
+  --accent-foreground: #ffffff;
+
+  /* Sémantique */
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+
+  /* Champs de formulaire */
+  --border: rgb(255 255 255 / 0.08);
+  --input: rgb(50 50 60 / 0.8);
+  --input-background: rgb(30 30 40 / 0.6);
+
+  /* Focus */
+  --ring: rgb(220 38 38 / 0.4);
+
+  /* Graphiques */
+  --chart-1: #dc2626;
+  --chart-2: #ef4444;
+  --chart-3: #3b82f6;
+  --chart-4: #60a5fa;
+  --chart-5: #93c5fd;
+
+  /* Sidebar */
+  --sidebar: rgb(10 10 10 / 0.8);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #dc2626;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(30 30 30 / 0.6);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: rgb(220 38 38 / 0.4);
+
+  /* Palette Rouge & Bleu */
+  --accent-red: #dc2626;
+  --accent-red-light: #ef4444;
+  --accent-red-hover: #b91c1c;
+  --accent-red-muted: rgb(220 38 38 / 0.1);
+
+  --accent-blue: #3b82f6;
+  --accent-blue-light: #60a5fa;
+  --accent-blue-hover: #2563eb;
+  --accent-blue-muted: rgb(59 130 246 / 0.1);
+
+  /* Indicateurs financiers */
+  --positive: #dc2626;
+  --positive-glow: rgb(220 38 38 / 0.1);
+  --negative: #dc2626;
+  --negative-glow: rgb(220 38 38 / 0.1);
+  --neutral: #71717a;
+  --neutral-glow: rgb(113 113 122 / 0.1);
+
+  /* Glassmorphisme */
+  --glass-bg: rgb(15 15 15 / 0.5);
+  --glass-border: rgb(255 255 255 / 0.1);
+  --glass-hover: rgb(25 25 25 / 0.6);
+}
+
+/* ─── Mapping Tailwind v4 ────────────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-positive: var(--positive);
+  --color-positive-glow: var(--positive-glow);
+  --color-negative: var(--negative);
+  --color-negative-glow: var(--negative-glow);
+  --color-neutral: var(--neutral);
+  --color-neutral-glow: var(--neutral-glow);
+  --color-glass-bg: var(--glass-bg);
+  --color-glass-border: var(--glass-border);
+  --color-glass-hover: var(--glass-hover);
+  --color-accent-red: var(--accent-red);
+  --color-accent-red-light: var(--accent-red-light);
+  --color-accent-red-hover: var(--accent-red-hover);
+  --color-accent-red-muted: var(--accent-red-muted);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-blue-light: var(--accent-blue-light);
+  --color-accent-blue-hover: var(--accent-blue-hover);
+  --color-accent-blue-muted: var(--accent-blue-muted);
+}
+
+/* ─── Styles de base ─────────────────────────────────────────────────────── */
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    transition: background-color 0.3s;
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h2 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  h4 {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  label {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  button {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+  }
+
+  input {
+    font-size: var(--text-base);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+  }
+
+  /* Éléments select natifs — héritent de color-scheme défini sur :root / .dark */
+  select {
+    background-color: var(--input-background);
+    color: var(--foreground);
+  }
+
+  select option {
+    background-color: var(--popover);
+    color: var(--foreground);
+  }
+
+  /* Labels SVG Recharts (axes, légendes PieChart) */
+  .dark .recharts-text,
+  .dark .recharts-label,
+  .dark .recharts-pie-label-text {
+    fill: var(--muted-foreground);
+  }
+}
+
+/* ─── Utilitaires ────────────────────────────────────────────────────────── */
+@layer utilities {
+  .glow-subtle-red {
+    box-shadow: 0 0 20px rgb(220 38 38 / 0.05);
+  }
+
+  .glow-subtle-blue {
+    box-shadow: 0 0 20px rgb(59 130 246 / 0.05);
+  }
+
+  .border-accent-red {
+    border-color: rgb(220 38 38 / 0.3);
+  }
+
+  .border-accent-blue {
+    border-color: rgb(59 130 246 / 0.3);
+  }
+
+  .border-accent-red-hover:hover {
+    border-color: rgb(220 38 38 / 0.5);
+  }
+
+  .border-accent-blue-hover:hover {
+    border-color: rgb(59 130 246 / 0.5);
+  }
+}

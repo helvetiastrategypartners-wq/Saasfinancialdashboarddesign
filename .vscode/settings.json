@@ -1,0 +1,5 @@
+{
+    "sarif-viewer.connectToGithubCodeScanning": "off",
+    "css.customData": [],
+    "css.lint.unknownAtRules": "ignore"
+}
