@@ -5,7 +5,7 @@
  * Lance avec : npx vitest run metrics.test.ts
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
     sumAmounts,
     filterTxPure,
@@ -698,6 +698,14 @@ describe("MetricsCalculator — break-even", () => {
     it("calculateBreakEvenRevenue = threshold * price", () => {
         expect(makeCalc().calculateBreakEvenRevenue(4000, 100, 60)).toBe(10000);
     });
+
+    it("calculateBreakEvenPoint = fixedCosts / (price - variableCost)", () => {
+        expect(makeCalc().calculateBreakEvenPoint(4000, 100, 60)).toBe(100);
+    });
+
+    it("calculateBreakEvenPoint retourne Infinity si price <= variableCost", () => {
+        expect(makeCalc().calculateBreakEvenPoint(4000, 60, 60)).toBe(Infinity);
+    });
 });
 
 // ── getCohortAnalysis ─────────────────────────────────────────────────────────
@@ -785,6 +793,21 @@ describe("MetricsCalculator — dette", () => {
     it("calculateDebtService = somme des monthly_repayment", () => {
         const debts = [makeDebt({ monthly_repayment: 1000 }), makeDebt({ id: "d2", monthly_repayment: 500 })];
         expect(makeCalc({ debts }).calculateDebtService()).toBe(1500);
+    });
+
+    it("calculateDebtService utilise 0 si monthly_repayment absent (L652 branche ||)", () => {
+        const debts = [makeDebt({ monthly_repayment: undefined as any }), makeDebt({ id: "d2", monthly_repayment: 400 })];
+        expect(makeCalc({ debts }).calculateDebtService()).toBe(400);
+    });
+
+    it("calculateTotalDebtPayments = somme des monthly_repayment (L643)", () => {
+        const debts = [makeDebt({ monthly_repayment: 800 }), makeDebt({ id: "d2", monthly_repayment: 200 })];
+        expect(makeCalc({ debts }).calculateTotalDebtPayments()).toBe(1000);
+    });
+
+    it("calculateTotalDebtPayments utilise 0 si monthly_repayment absent (L643 branche ||)", () => {
+        const debts = [makeDebt({ monthly_repayment: undefined as any }), makeDebt({ id: "d2", monthly_repayment: 300 })];
+        expect(makeCalc({ debts }).calculateTotalDebtPayments()).toBe(300);
     });
 
     it("calculateLeverageRatio = totalDebt / EBITDA si EBITDA > 0", () => {
@@ -889,10 +912,17 @@ describe("MetricsCalculator.getAutomaticInsights", () => {
         expect(insights.some(i => i.includes("churn"))).toBe(true);
     });
 
-    it("génère un insight LTV/CAC faible si ratio < 3 (branche if)", () => {
-        // ltvCacRatio=0 < 3 → "faible"
-        const insights = makeCalc().getAutomaticInsights();
-        expect(insights.some(i => i.includes("faible"))).toBe(true);
+    it("génère un insight LTV/CAC faible si ratio < 3 (branche if, ligne 685)", () => {
+        // cac=5000 (1 nouveau client, spend=5000), arpu=100, margin=50%, churn=0 → lifetime=60
+        // ltv = 100 * 0.5 * 60 = 3000 → ratio = 3000/5000 = 0.6 < 3 → ligne 685 atteinte
+        const customers = [makeCustomer({ id: "c1", status: "active", acquisition_date: "2025-02-05", monthly_revenue: 100 })];
+        const mktg = [makeMktg({ period_start: "2025-02-01", spend: 5000, customers_acquired: 1, revenue_generated: 100 })];
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "income", amount: 100 }),
+            makeTx({ id: "tx2", date: "2025-02-10", type: "expense", amount: 50, category: "Direct Costs" }),
+        ];
+        const insights = makeCalc({ transactions: txs, customers, marketingMetrics: mktg }).getAutomaticInsights();
+        expect(insights.some(i => i.includes("LTV/CAC") && i.includes("risque"))).toBe(true);
     });
 
     it("génère un insight LTV/CAC sain si ratio ≥ 3 (branche else — ligne 678)", () => {
@@ -1191,5 +1221,199 @@ describe("MetricsCalculator.calculateAverageGrowth — mois à revenu zéro (L70
         ];
         const avg = makeCalc({ transactions: txs }).calculateAverageGrowth(3);
         expect(avg).toBe(-100);
+    });
+});
+
+// ── 1. calculateClientMargin — stub calculateCAC (branche !channel, CAC > 0) ──
+
+describe("MetricsCalculator.calculateClientMargin — stub calculateCAC non nul", () => {
+    it("applique la formule revenue*margin - cac quand calculateCAC retourne 500", () => {
+        const customers = [makeCustomer({ id: "c1", acquisition_channel: undefined })];
+        const calc = makeCalc({ customers });
+
+        const mockCAC = vi.spyOn(calc as any, "calculateCAC").mockReturnValue(500);
+
+        // revenue=0 (aucune tx liée à c1), grossMarginPercent=0 → 0*(0/100) - 500 = -500
+        const margin = calc.calculateClientMargin("c1");
+        expect(mockCAC).toHaveBeenCalled();
+        expect(margin).toBe(-500);
+
+        mockCAC.mockRestore();
+    });
+});
+
+// ── 2. getMonthlyNetCashflow — tous les flux pending (cash = 0) ───────────────
+
+describe("MetricsCalculator.getMonthlyNetCashflow — tous les flux pending", () => {
+    it("retourne cash = 0 quand toutes les transactions du mois sont pending", () => {
+        const calc = makeCalc({
+            transactions: [
+                makeTx({ date: "2025-02-10", type: "income",  amount: 800,  payment_status: "pending" }),
+                makeTx({ id: "tx2", date: "2025-02-12", type: "expense", amount: 200, payment_status: "pending" }),
+            ],
+        });
+        // months=2 → [fev(i=0), mar(i=1)]
+        const cashFlow = calc.getMonthlyNetCashflow(2);
+        expect(cashFlow[0].cash).toBe(0);
+    });
+});
+
+// ── 3. getMonthlyCashTrend — runningBalance = 0 sans transaction antérieure ───
+
+describe("MetricsCalculator.getMonthlyCashTrend — aucune transaction antérieure", () => {
+    it("calcule cumulativeBalance = netFlow quand il n'y a pas de solde antérieur", () => {
+        const calc = makeCalc({
+            transactions: [
+                makeTx({ date: "2025-02-10", type: "income", amount: 1500 }),
+            ],
+        });
+        // months=1 → [fev] ; aucune tx avant fev → runningBalance part de 0
+        const trend = calc.getMonthlyCashTrend(1);
+        expect(trend[0].cumulativeBalance).toBe(1500);
+    });
+});
+
+// ── 4. calculateCACByChannel — date acquisition exactement au 1er du mois ─────
+
+describe("MetricsCalculator.calculateCACByChannel — date d'acquisition à la frontière", () => {
+    it("retourne 0 quand la date d'acquisition est exactement le 1er du mois précédent", () => {
+        // acquisition_date = 2025-01-01 → hors de la fenêtre M-1 (fév 2025)
+        // → newCustomersCount = 0 → CAC = 0 → calculateClientMargin = 0
+        const customers = [
+            makeCustomer({ id: "c1", acquisition_channel: "seo", acquisition_date: "2025-01-01" }),
+        ];
+        const calc = makeCalc({ customers });
+        expect(calc.calculateClientMargin("c1")).toBe(0);
+    });
+});
+
+// ── 5. getCustomerRevenueLastMonth — transactions du mois non liées au client ──
+
+describe("MetricsCalculator.getCustomerRevenueLastMonth — tx présentes mais non liées", () => {
+    it("retourne 0 quand les transactions du mois ne sont pas liées au client cible", () => {
+        // tx en fév existe mais sans linked_customer → revenue c1 = 0
+        const customers = [makeCustomer({ id: "c1" })];
+        const calc = makeCalc({
+            customers,
+            transactions: [makeTx({ date: "2025-02-10", amount: 500 })], // pas de linked_customer
+        });
+        expect(calc.calculateClientMargin("c1")).toBe(0);
+    });
+});
+
+// ── calculateTotalDebt ────────────────────────────────────────────────────────
+
+describe("MetricsCalculator — calculateTotalDebt", () => {
+    it("additionne les remaining_amount : CHF 80 000 + CHF 15 000 = CHF 95 000", () => {
+        const debts = [
+            makeDebt({ id: "d1", remaining_amount: 80000 }),
+            makeDebt({ id: "d2", remaining_amount: 15000 }),
+        ];
+        expect(makeCalc({ debts }).calculateAll().totalDebt).toBe(95000);
+    });
+
+    it("retourne 0 si debts = []", () => {
+        expect(makeCalc().calculateAll().totalDebt).toBe(0);
+    });
+});
+
+// ── calculateEBITDA ───────────────────────────────────────────────────────────
+
+describe("MetricsCalculator — calculateEBITDA", () => {
+    it("EBITDA = grossMargin − OPEX hors Direct Costs : CHF 68 000 − CHF 49 000 = CHF 19 000", () => {
+        // grossMargin = revenue(68000) - direct_costs(0) = 68000
+        // opex (hors Direct Costs) = 49000 (Salaries)
+        // EBITDA = 68000 - 49000 = 19000
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "income",  amount: 68000 }),
+            makeTx({ id: "tx2", date: "2025-02-15", type: "expense", amount: 49000, category: "Salaries" }),
+        ];
+        expect(makeCalc({ transactions: txs }).calculateAll().ebitda).toBe(19000);
+    });
+
+    it("EBITDA inclut les Direct Costs dans grossMargin mais pas dans opex", () => {
+        // revenue=10000, direct_costs=2000 → grossMargin=8000
+        // opex (Salaries)=3000 → EBITDA=5000
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "income",  amount: 10000 }),
+            makeTx({ id: "tx2", date: "2025-02-15", type: "expense", amount: 2000, category: "Direct Costs" }),
+            makeTx({ id: "tx3", date: "2025-02-20", type: "expense", amount: 3000, category: "Salaries" }),
+        ];
+        expect(makeCalc({ transactions: txs }).calculateAll().ebitda).toBe(5000);
+    });
+
+    it("EBITDA nul ou négatif → calculateLeverageRatio retourne 0 (protection division par zéro)", () => {
+        // Aucune donnée → grossMargin=0, opex=0 → EBITDA=0 → leverageRatio=0
+        expect(makeCalc().calculateLeverageRatio()).toBe(0);
+    });
+
+    it("EBITDA négatif → calculateLeverageRatio retourne 0", () => {
+        // opex > grossMargin → EBITDA < 0 → leverageRatio=0
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "income",  amount: 1000 }),
+            makeTx({ id: "tx2", date: "2025-02-15", type: "expense", amount: 5000, category: "Salaries" }),
+        ];
+        const debts = [makeDebt({ remaining_amount: 50000 })];
+        expect(makeCalc({ transactions: txs, debts }).calculateLeverageRatio()).toBe(0);
+    });
+});
+
+// ── calculateRevenueConcentration — seuil 25% ─────────────────────────────────
+
+describe("MetricsCalculator.calculateRevenueConcentration — seuil 25%", () => {
+    it("détecte un client qui dépasse 25% du CA", () => {
+        const customers = [
+            makeCustomer({ id: "c1", name: "Dominant" }),
+            makeCustomer({ id: "c2", name: "B" }),
+            makeCustomer({ id: "c3", name: "C" }),
+            makeCustomer({ id: "c4", name: "D" }),
+        ];
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "income", amount: 5000, linked_customer: "c1" }),
+            makeTx({ id: "tx2", date: "2025-02-10", type: "income", amount: 1000, linked_customer: "c2" }),
+            makeTx({ id: "tx3", date: "2025-02-10", type: "income", amount: 1000, linked_customer: "c3" }),
+            makeTx({ id: "tx4", date: "2025-02-10", type: "income", amount: 1000, linked_customer: "c4" }),
+        ];
+        const result = makeCalc({ transactions: txs, customers }).calculateRevenueConcentration();
+        // c1 = 5000/8000 = 62.5% > 25%
+        expect(result["Dominant"]).toBeGreaterThan(25);
+    });
+
+    it("aucun client ne dépasse 25% avec une distribution équilibrée", () => {
+        const customers = [
+            makeCustomer({ id: "c1", name: "A" }),
+            makeCustomer({ id: "c2", name: "B" }),
+            makeCustomer({ id: "c3", name: "C" }),
+            makeCustomer({ id: "c4", name: "D" }),
+            makeCustomer({ id: "c5", name: "E" }),
+        ];
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "income", amount: 2000, linked_customer: "c1" }),
+            makeTx({ id: "tx2", date: "2025-02-10", type: "income", amount: 2000, linked_customer: "c2" }),
+            makeTx({ id: "tx3", date: "2025-02-10", type: "income", amount: 2000, linked_customer: "c3" }),
+            makeTx({ id: "tx4", date: "2025-02-10", type: "income", amount: 2000, linked_customer: "c4" }),
+            makeTx({ id: "tx5", date: "2025-02-10", type: "income", amount: 2000, linked_customer: "c5" }),
+        ];
+        const result = makeCalc({ transactions: txs, customers }).calculateRevenueConcentration();
+        // Chaque client = 20% ≤ 25%
+        expect(Object.values(result).every(v => v <= 25)).toBe(true);
+    });
+
+    it("retourne {} si CA total = 0 (aucun revenu)", () => {
+        const customers = [makeCustomer({ id: "c1", name: "A" })];
+        expect(makeCalc({ customers }).calculateRevenueConcentration()).toEqual({});
+    });
+});
+
+// ── calculateDIO — unit_cost = 0 ─────────────────────────────────────────────
+
+describe("MetricsCalculator.calculateDIO — stocks à unit_cost = 0", () => {
+    it("retourne 0 si unit_cost = 0 (inventaire sans valeur)", () => {
+        const inventory = [makeInventory({ quantity: 100, unit_cost: 0 })];
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "expense", amount: 3000, category: "Direct Costs" }),
+        ];
+        // totalInventoryValue = 100*0 = 0 → DIO = 0
+        expect(makeCalc({ transactions: txs, inventory }).calculateDIO()).toBe(0);
     });
 });

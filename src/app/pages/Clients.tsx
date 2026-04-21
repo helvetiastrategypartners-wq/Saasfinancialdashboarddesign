@@ -132,7 +132,7 @@ export function Clients() {
         {[
           { label: "Total Clients",   value: customers.length.toString(), delay: 0 },
           { label: "Clients Actifs",  value: metrics.activeCustomers.toString(), delay: 0.1, highlight: true },
-          { label: "Revenu Total",    value: `CHF ${totalRevenue.toLocaleString("fr-CH")}`, delay: 0.2 },
+          { label: "Revenu Total",    value: formatCurrencyShort(totalRevenue), delay: 0.2 },
           { label: "Revenu Moyen",    value: formatCurrencyShort(avgRevenue), delay: 0.3 },
         ].map(({ label, value, delay, highlight }) => (
           <motion.div
@@ -208,8 +208,10 @@ export function Clients() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">MRR</p>
-                    <p className="text-lg font-semibold text-foreground">CHF {client.monthly_revenue.toLocaleString("fr-CH")}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Marge {client.gross_margin_percent.toFixed(1)}%</p>
+                    <p className="text-lg font-semibold text-foreground">{formatCurrencyShort(client.monthly_revenue)}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Marge {client.gross_margin_percent.toFixed(2)}% · {formatCurrencyShort(client.monthly_revenue * client.gross_margin_percent / 100)}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Revenu total</p>

@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Plus, Zap, AlertCircle, Search, CheckCircle, Pencil, Trash2, X, Loader2, Sparkles } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
+import { formatCurrencyShort } from "../utils/currency";
 import type { Transaction } from "@shared/types";
 
 const STATUS_MAP: Record<string, string> = {
@@ -181,15 +182,15 @@ export function Invoices() {
       <div className="grid grid-cols-3 gap-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Factures payées</p>
-          <p className="text-3xl font-semibold text-accent-blue">CHF {paidAmount.toLocaleString("fr-CH")}</p>
+          <p className="text-3xl font-semibold text-accent-blue">{formatCurrencyShort(paidAmount)}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Factures en attente</p>
-          <p className="text-3xl font-semibold text-yellow-500">CHF {unpaidAmount.toLocaleString("fr-CH")}</p>
+          <p className="text-3xl font-semibold text-yellow-500">{formatCurrencyShort(unpaidAmount)}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl p-6 backdrop-blur-xl border border-accent-red/30" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Annulées</p>
-          <p className="text-3xl font-semibold text-accent-red">CHF {overdueAmount.toLocaleString("fr-CH")}</p>
+          <p className="text-3xl font-semibold text-accent-red">{formatCurrencyShort(overdueAmount)}</p>
         </motion.div>
       </div>
 
@@ -199,7 +200,7 @@ export function Invoices() {
           <AlertCircle className="w-5 h-5 text-accent-red mt-0.5" />
           <div>
             <p className="text-accent-red font-semibold">Transactions annulées détectées</p>
-            <p className="text-sm text-accent-red/80 mt-1">{overdueList.length} transaction(s) annulée(s) — CHF {overdueAmount.toLocaleString("fr-CH")}</p>
+            <p className="text-sm text-accent-red/80 mt-1">{overdueList.length} transaction(s) annulée(s) — {formatCurrencyShort(overdueAmount)}</p>
           </div>
         </motion.div>
       )}
@@ -256,7 +257,7 @@ export function Invoices() {
                   <td className="p-4 text-sm text-foreground">{invoice.supplier}</td>
                   <td className="p-4 text-sm text-foreground">{invoice.category}</td>
                   <td className="p-4 text-sm text-foreground">{invoice.dueDate}</td>
-                  <td className="p-4 text-sm text-right font-semibold text-foreground">CHF {invoice.amount.toLocaleString("fr-CH")}</td>
+                  <td className="p-4 text-sm text-right font-semibold text-foreground">{formatCurrencyShort(invoice.amount)}</td>
                   <td className="p-4 text-center">
                     <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
                       invoice.status === "Payée"   ? "bg-accent-blue/20 text-accent-blue"
@@ -401,7 +402,7 @@ export function Invoices() {
               <h2 className="text-lg font-semibold text-foreground">Supprimer la facture ?</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
-              <span className="font-medium text-foreground">{selected.supplier}</span> — CHF {selected.amount.toLocaleString("fr-CH")} du {selected.dueDate} sera définitivement supprimée.
+              <span className="font-medium text-foreground">{selected.supplier}</span> — {formatCurrencyShort(selected.amount)} du {selected.dueDate} sera définitivement supprimée.
             </p>
             <div className="flex justify-end gap-3">
               <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">

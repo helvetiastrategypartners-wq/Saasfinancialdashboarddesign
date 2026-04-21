@@ -3,6 +3,7 @@ import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
 import { Overlay, Field, DeleteConfirm, inputCls, useToast } from "../components/Modal";
+import { formatCurrencyShort } from "../utils/currency";
 import type { Transaction } from "@shared/types";
 
 const TX_CATEGORIES = ["Subscriptions", "Consulting", "Revenue", "Marketing", "Salaries", "Direct Costs", "Operations", "Financing"];
@@ -141,16 +142,16 @@ export function Transactions() {
       <div className="grid grid-cols-3 gap-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Revenus filtrés</p>
-          <p className="text-3xl font-semibold text-accent-blue">CHF {filteredRevenue.toLocaleString("fr-CH")}</p>
+          <p className="text-3xl font-semibold text-accent-blue">{formatCurrencyShort(filteredRevenue)}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Dépenses filtrées</p>
-          <p className="text-3xl font-semibold text-accent-red">CHF {filteredExpenses.toLocaleString("fr-CH")}</p>
+          <p className="text-3xl font-semibold text-accent-red">{formatCurrencyShort(filteredExpenses)}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Différence</p>
           <p className={`text-3xl font-semibold ${difference >= 0 ? "text-accent-blue" : "text-accent-red"}`}>
-            {difference >= 0 ? "+" : "-"}CHF {Math.abs(difference).toLocaleString("fr-CH")}
+            {difference >= 0 ? "+" : "-"}{formatCurrencyShort(Math.abs(difference))}
           </p>
         </motion.div>
       </div>
@@ -214,7 +215,7 @@ export function Transactions() {
                     </span>
                   </td>
                   <td className={`p-4 text-sm text-right font-semibold ${tx.type === "income" ? "text-accent-blue" : "text-accent-red"}`}>
-                    {tx.type === "income" ? "+" : "-"}CHF {tx.amount.toLocaleString("fr-CH")}
+                    {tx.type === "income" ? "+" : "-"}{formatCurrencyShort(tx.amount)}
                   </td>
                   <td className="p-4 text-center">
                     <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
@@ -306,7 +307,7 @@ export function Transactions() {
         {modal === "delete" && selected && (
           <DeleteConfirm
             label="Supprimer la transaction ?"
-            detail={`"${selected.label}" — CHF ${selected.amount.toLocaleString("fr-CH")} du ${selected.date} sera définitivement supprimée.`}
+            detail={`"${selected.label}" — ${formatCurrencyShort(selected.amount)} du ${selected.date} sera définitivement supprimée.`}
             onConfirm={handleDelete}
             onCancel={() => setModal(null)}
             loading={saving}

@@ -87,7 +87,7 @@ export function Forecast() {
           <label className="text-sm font-semibold text-foreground">Scénario :</label>
           <select
             value={selectedScenario}
-            onChange={(e) => setSelectedScenario(e.target.value)}
+            onChange={(e: { target: { value: any; }; }) => setSelectedScenario(e.target.value)}
             className="px-6 py-3 rounded-xl bg-secondary/50 border border-glass-border text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all backdrop-blur-xl min-w-[250px]"
           >
             {SCENARIO_PARAMS.map(s => (
@@ -147,12 +147,12 @@ export function Forecast() {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(v: number) => `${(v/1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
                 labelStyle={{ color: "var(--popover-foreground)" }}
                 itemStyle={{ color: "var(--popover-foreground)" }}
-                formatter={(value: number) => `CHF ${value.toLocaleString("fr-CH")}`}
+                formatter={(value: number) => formatCurrencyShort(value)}
               />
               <Legend />
               <Area type="monotone" dataKey="conservateur" name="Conservateur" stroke="#f97316" fill="transparent" strokeWidth={2} dot={false} />
@@ -175,12 +175,12 @@ export function Forecast() {
             <LineChart data={activeProjection}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(v: number) => `${(v/1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
                 labelStyle={{ color: "var(--popover-foreground)" }}
                 itemStyle={{ color: "var(--popover-foreground)" }}
-                formatter={(value: number) => `CHF ${value.toLocaleString("fr-CH")}`}
+                formatter={(value: number) => formatCurrencyShort(value)}
               />
               <Legend />
               <Line type="monotone" dataKey="revenue"  name="Revenu"    stroke="var(--accent-red)"  strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
@@ -216,7 +216,7 @@ export function Forecast() {
                 { label: "Cash final (M12)",     fmt: (n: string) => formatCurrencyShort(projectionData[n].at(-1)!.cash) },
                 { label: "Runway projeté",       fmt: (n: string) => `${scenarioResults[n].projectedRunway} mois` },
                 { label: "Revenu projeté",       fmt: (n: string) => formatCurrencyShort(scenarioResults[n].projectedRevenue) },
-                { label: "Cashflow net projeté", fmt: (n: string) => `CHF ${scenarioResults[n].projectedNetCashflow.toLocaleString("fr-CH")}` },
+                { label: "Cashflow net projeté", fmt: (n: string) => formatCurrencyShort(scenarioResults[n].projectedNetCashflow) },
                 { label: "Burn rate projeté",    fmt: (n: string) => formatCurrencyShort(scenarioResults[n].projectedBurnRate) },
               ].map(row => (
                 <tr key={row.label} className="border-b border-glass-border/50">

@@ -2,16 +2,20 @@
 
 export const CURRENCY = 'CHF';
 
-export function formatCurrency(amount: number, includeDecimals: boolean = true): string {
-  const formatted = amount.toLocaleString('fr-CH');
-  return includeDecimals 
-    ? `${CURRENCY} ${formatted}.00`
-    : `${CURRENCY} ${formatted}`;
+/**
+ * Affiche un montant CHF exact :
+ * - pas de décimales si le montant est un nombre entier (ex: CHF 258'700)
+ * - 2 décimales sinon (ex: CHF 258'700.50)
+ * Jamais d'abréviation "k" — la valeur exacte est toujours affichée.
+ */
+export function formatCHF(amount: number): string {
+  const hasCents = Math.round(amount * 100) % 100 !== 0;
+  const opts: Intl.NumberFormatOptions = hasCents
+    ? { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+    : { minimumFractionDigits: 0, maximumFractionDigits: 0 };
+  return `CHF ${amount.toLocaleString('fr-CH', opts)}`;
 }
 
-export function formatCurrencyShort(amount: number): string {
-  if (amount >= 1000) {
-    return `${CURRENCY} ${(amount / 1000).toFixed(0)}k`;
-  }
-  return `${CURRENCY} ${amount.toLocaleString('fr-CH')}`;
-}
+// Alias conservé pour rétrocompatibilité — même comportement précis
+export const formatCurrencyShort = formatCHF;
+export const formatCurrency      = formatCHF;

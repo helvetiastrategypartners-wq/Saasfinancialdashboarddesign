@@ -231,10 +231,7 @@ export class MetricsCalculator {
      * Plus de full scan sur this.transactions.
      */
     private calculateCash(): number {
-        const dso = this.calculateDSO();
-        const dio = this.calculateDIO();
-        const dpo = this.calculateDPO();
-        return isNaN(dso) || isNaN(dio) || isNaN(dpo) ? 0 : dso + dio - dpo;
+        return this._cashBalance;
     }
 
     /** Moyenne des dépenses sur les 3 derniers mois complets. */
@@ -587,7 +584,7 @@ export class MetricsCalculator {
             const total = cohortCustomers.length;
             const retentionRates: number[] = [];
             for (let m = 0; m <= monthsElapsed; m++) {
-                const checkDate = new Date(year, (month - 1) + m, 1);
+                const checkDate = new Date(Date.UTC(year, (month - 1) + m, 1));
                 let retained = 0;
                 for (const c of cohortCustomers) {
                     const isActive     = c.status === "active";
@@ -652,7 +649,7 @@ export class MetricsCalculator {
     }
 
     public calculateDebtService(): number {
-        return this.debts.reduce((s, d) => s + d.monthly_repayment, 0);
+        return this.calculateTotalDebtPayments();
     }
 
     // ── INTELLIGENCE LAYER ────────────────────────────────────────────────────
@@ -683,10 +680,12 @@ export class MetricsCalculator {
         if (m.churnRate > 5) {
             insights.push(`Taux de churn élevé : ${m.churnRate.toFixed(1)}% — risque sur la rétention clients.`);
         }
-        if (m.ltvCacRatio < 3) {
-            insights.push(`Ratio LTV/CAC faible (${m.ltvCacRatio.toFixed(1)}x) — rentabilité client à risque.`);
-        } else {
-            insights.push(`Ratio LTV/CAC sain (${m.ltvCacRatio.toFixed(1)}x) — acquisition rentable.`);
+        if (m.cac > 0) {
+            if (m.ltvCacRatio < 3) {
+                insights.push(`Ratio LTV/CAC faible (${m.ltvCacRatio.toFixed(1)}x) — rentabilité client à risque.`);
+            } else {
+                insights.push(`Ratio LTV/CAC sain (${m.ltvCacRatio.toFixed(1)}x) — acquisition rentable.`);
+            }
         }
         if (m.netCashflow < 0) {
             insights.push(`Cashflow net négatif (${m.netCashflow.toLocaleString("fr-CH")} CHF) — dépenses à optimiser.`);
@@ -832,7 +831,8 @@ export class MetricsCalculator {
 
     private calculatePaybackPeriod() {
         const margin = this.calculateARPU() * (this.getLastMonthData().grossMarginPercent / 100);
-        return margin > 0 ? this.calculateCAC() / margin : 0;
+        if (margin <= 0) return this.calculateCAC() > 0 ? Infinity : 0;
+        return this.calculateCAC() / margin;
     }
 
     /**

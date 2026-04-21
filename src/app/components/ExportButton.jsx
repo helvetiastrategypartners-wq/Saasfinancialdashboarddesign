@@ -8,35 +8,43 @@ const ExportButton = ({ title = 'Dashboard' }) => {
   const completedTx = transactions.filter(t => t.payment_status === 'completed');
 
   const exportCSV = () => {
+    // Wrap cell in quotes and escape internal quotes to prevent CSV corruption
+    const cell = v => {
+      const s = String(v ?? '');
+      return s.includes(';') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"`
+        : s;
+    };
+    const row = cols => cols.map(cell).join(';');
+
     const rows = [
-      ['Métrique', 'Valeur'],
-      ['Cash disponible (CHF)', metrics.cash],
-      ['Revenus mensuels (CHF)', metrics.monthlyRevenue],
-      ['Dépenses mensuelles (CHF)', metrics.monthlyExpenses],
-      ['Cashflow net (CHF)', metrics.netCashflow],
-      ['Burn rate 3 mois (CHF)', metrics.burnRate],
-      ['Runway (mois)', metrics.runway.toFixed(1)],
-      ['MRR (CHF)', metrics.mrr],
-      ['Marge brute (CHF)', metrics.grossMargin],
-      ['Clients actifs', metrics.activeCustomers],
-      ['Nouveaux clients (mois)', metrics.newCustomersMonth],
-      [],
-      ['--- Évolution mensuelle ---'],
-      ['Mois', 'Revenus', 'Dépenses'],
-      ...monthlyChartData.map(m => [m.month, m.revenue, m.expenses]),
-      [],
-      ['--- Répartition dépenses ---'],
-      ['Catégorie', 'Montant'],
-      ...expensesByCategory.map(e => [e.name, e.value]),
-      [],
-      ['--- Transactions récentes ---'],
-      ['Date', 'Libellé', 'Catégorie', 'Type', 'Montant (CHF)', 'Statut'],
-      ...completedTx.slice(0, 50).map(t => [
-        t.date, t.label, t.category, t.type, t.amount, t.payment_status,
-      ]),
+      row(['Métrique', 'Valeur']),
+      row(['Cash disponible (CHF)', metrics.cash]),
+      row(['Revenus mensuels (CHF)', metrics.monthlyRevenue]),
+      row(['Dépenses mensuelles (CHF)', metrics.monthlyExpenses]),
+      row(['Cashflow net (CHF)', metrics.netCashflow]),
+      row(['Burn rate 3 mois (CHF)', metrics.burnRate]),
+      row(['Runway (mois)', metrics.runway.toFixed(1)]),
+      row(['MRR (CHF)', metrics.mrr]),
+      row(['Marge brute (CHF)', metrics.grossMargin]),
+      row(['Marge brute (%)', metrics.grossMarginPercent.toFixed(2)]),
+      row(['Clients actifs', metrics.activeCustomers]),
+      row(['Nouveaux clients (mois)', metrics.newCustomersMonth]),
+      '',
+      row(['--- Évolution mensuelle ---']),
+      row(['Mois', 'Revenus (CHF)', 'Dépenses (CHF)', 'Cashflow net (CHF)']),
+      ...monthlyChartData.map(m => row([m.month, m.revenue, m.expenses, (m.revenue ?? 0) - (m.expenses ?? 0)])),
+      '',
+      row(['--- Répartition dépenses ---']),
+      row(['Catégorie', 'Montant (CHF)']),
+      ...expensesByCategory.map(e => row([e.name, e.value])),
+      '',
+      row(['--- Transactions ---']),
+      row(['Date', 'Libellé', 'Catégorie', 'Type', 'Montant (CHF)', 'Statut']),
+      ...completedTx.map(t => row([t.date, t.label, t.category, t.type, t.amount, t.payment_status])),
     ];
 
-    const csv = '\uFEFF' + rows.map(r => r.join(';')).join('\n');
+    const csv = '\uFEFF' + rows.join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     triggerDownload(blob, `${title}.csv`);
   };
@@ -57,6 +65,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
         ['Runway (mois)', metrics.runway],
         ['MRR (CHF)', metrics.mrr],
         ['Marge brute (CHF)', metrics.grossMargin],
+        ['Marge brute (%)', metrics.grossMarginPercent],
         ['Clients actifs', metrics.activeCustomers],
         ['Nouveaux clients (mois)', metrics.newCustomersMonth],
       ]);
@@ -69,8 +78,8 @@ const ExportButton = ({ title = 'Dashboard' }) => {
       XLSX.utils.book_append_sheet(wb, txSheet, 'Transactions');
 
       const monthSheet = XLSX.utils.aoa_to_sheet([
-        ['Mois', 'Revenus (CHF)', 'Dépenses (CHF)'],
-        ...monthlyChartData.map(m => [m.month, m.revenue, m.expenses]),
+        ['Mois', 'Revenus (CHF)', 'Dépenses (CHF)', 'Cashflow net (CHF)'],
+        ...monthlyChartData.map(m => [m.month, m.revenue, m.expenses, (m.revenue ?? 0) - (m.expenses ?? 0)]),
       ]);
       XLSX.utils.book_append_sheet(wb, monthSheet, 'Évolution');
 
@@ -120,7 +129,18 @@ const ExportButton = ({ title = 'Dashboard' }) => {
       doc.text('Indicateurs clés (KPIs)', 14, y);
       y += 5;
 
-      const chf = v => `CHF ${Number(v ?? 0).toLocaleString('fr-CH')}`;
+      // Format numbers manually — avoids locale-dependent thousand separators
+      // (fr-CH outputs U+2019 apostrophe which jsPDF/Helvetica renders as "/").
+      const num = v => {
+        const n = Number(v ?? 0);
+        const sign = n < 0 ? '-' : '';
+        const abs = Math.abs(n);
+        const hasCents = Math.round(abs * 100) % 100 !== 0;
+        const [intPart, decPart] = abs.toFixed(hasCents ? 2 : 0).split('.');
+        const intFormatted = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        return sign + (hasCents ? `${intFormatted}.${decPart}` : intFormatted);
+      };
+      const chf = v => `CHF ${num(v)}`;
       const kpis = [
         ['Cash disponible',      chf(metrics.cash),              'Revenus mensuels',      chf(metrics.monthlyRevenue)],
         ['Dépenses mensuelles',  chf(metrics.monthlyExpenses),   'Cashflow net',          chf(metrics.netCashflow)],
@@ -156,9 +176,9 @@ const ExportButton = ({ title = 'Dashboard' }) => {
         head: [['Mois', 'Revenus (CHF)', 'Dépenses (CHF)', 'Cashflow net (CHF)']],
         body: monthlyChartData.map(m => [
           m.month,
-          Number(m.revenue ?? 0).toLocaleString('fr-CH'),
-          Number(m.expenses ?? 0).toLocaleString('fr-CH'),
-          Number((m.revenue ?? 0) - (m.expenses ?? 0)).toLocaleString('fr-CH'),
+          num(m.revenue),
+          num(m.expenses),
+          num((m.revenue ?? 0) - (m.expenses ?? 0)),
         ]),
         theme: 'striped',
         headStyles: { fillColor: blue, fontSize: 8.5 },
@@ -182,7 +202,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
           const total = expensesByCategory.reduce((s, e) => s + (e.value ?? 0), 0);
           return expensesByCategory.map(e => [
             e.name,
-            Number(e.value ?? 0).toLocaleString('fr-CH'),
+            num(e.value),
             total > 0 ? `${((e.value / total) * 100).toFixed(1)}%` : '—',
           ]);
         })(),
@@ -209,7 +229,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
           t.label,
           t.category,
           t.type === 'income' ? 'Revenu' : 'Dépense',
-          (t.type === 'income' ? '+' : '-') + Number(t.amount ?? 0).toLocaleString('fr-CH'),
+          (t.type === 'income' ? '+' : '-') + num(t.amount),
         ]),
         theme: 'striped',
         headStyles: { fillColor: blue, fontSize: 8.5 },
