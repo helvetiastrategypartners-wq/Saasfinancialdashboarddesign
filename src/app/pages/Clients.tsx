@@ -3,7 +3,7 @@ import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
 import { Overlay, Field, DeleteConfirm, inputCls, useToast } from "../components/Modal";
-import { formatCurrencyShort } from "../utils/currency";
+import { formatCurrencyShort } from "../../utils/currency";
 import type { Customer } from "@shared/types";
 
 const STATUS_LABEL: Record<string, string> = {

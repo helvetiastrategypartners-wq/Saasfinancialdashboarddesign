@@ -6,7 +6,7 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../utils/currency";
+import { formatCurrencyShort } from "../../utils/currency";
 import ExportButton from '../components/ExportButton';
 import type { Transaction } from "@shared/types";
 

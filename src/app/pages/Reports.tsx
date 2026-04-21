@@ -1,7 +1,7 @@
 import { motion } from "motion/react";
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Info } from "lucide-react";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../utils/currency";
+import { formatCurrencyShort } from "../../utils/currency";
 
 export function Reports() {
   const { metrics, calculator } = useMetrics();

@@ -3,7 +3,7 @@ import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
 import { Overlay, Field, DeleteConfirm, inputCls, useToast } from "../components/Modal";
-import { formatCurrencyShort } from "../utils/currency";
+import { formatCurrencyShort } from "../../utils/currency";
 import type { Transaction } from "@shared/types";
 
 const TX_CATEGORIES = ["Subscriptions", "Consulting", "Revenue", "Marketing", "Salaries", "Direct Costs", "Operations", "Financing"];

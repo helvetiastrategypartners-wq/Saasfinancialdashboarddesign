@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../utils/currency";
+import { formatCurrencyShort } from "../../utils/currency";
 import { Overlay, Field, DeleteConfirm, inputCls, useToast } from "../components/Modal";
 import type { MarketingMetrics } from "@shared/types";
 

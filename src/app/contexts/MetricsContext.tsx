@@ -5,7 +5,7 @@ import {
   mockTransactions, mockCustomers, mockMarketingMetrics,
   mockProducts, mockDebts, mockReceivables, mockInventory, mockGoals,
 } from "../lib/mockData";
-import { supabase } from "../lib/supabase";
+import { supabase } from "../../utils/supabase";
 
 export interface MonthlyDataPoint {
   month: string;

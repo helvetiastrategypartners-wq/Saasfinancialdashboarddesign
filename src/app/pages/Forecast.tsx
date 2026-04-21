@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import { useState, useMemo } from "react";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../utils/currency";
+import { formatCurrencyShort } from "../../utils/currency";
 
 const SCENARIO_PARAMS = [
   { name: "Conservateur",    description: "Croissance modérée +5% revenu/mois, burn +3%, churn 5%",  revenueChange:  5, expenseChange: 3 },

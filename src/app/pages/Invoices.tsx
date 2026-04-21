@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Plus, Zap, AlertCircle, Search, CheckCircle, Pencil, Trash2, X, Loader2, Sparkles } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../utils/currency";
+import { formatCurrencyShort } from "../../utils/currency";
 import type { Transaction } from "@shared/types";
 
 const STATUS_MAP: Record<string, string> = {
