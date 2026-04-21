@@ -142,17 +142,20 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
     const now = new Date().toISOString();
     const newTx: Transaction = { ...t, id: crypto.randomUUID(), company_id: COMPANY_ID, created_at: now, updated_at: now };
     setTransactions(prev => [...prev, newTx]);
-    void supabase.from("transactions").insert(newTx);
+    const { error } = await supabase.from("transactions").insert(newTx);
+    if (error) console.error("insert transaction:", error);
   };
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
     setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates, updated_at: new Date().toISOString() } : t));
-    void supabase.from("transactions").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("transactions").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) console.error("update transaction:", error);
   };
 
   const deleteTransaction = async (id: string) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
-    void supabase.from("transactions").delete().eq("id", id);
+    const { error } = await supabase.from("transactions").delete().eq("id", id);
+    if (error) console.error("delete transaction:", error);
   };
 
   const addCustomer = async (c: Omit<Customer, "id" | "company_id" | "created_at" | "updated_at">) => {
@@ -164,12 +167,14 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
 
   const updateCustomer = async (id: string, updates: Partial<Customer>) => {
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates, updated_at: new Date().toISOString() } : c));
-    void supabase.from("customers").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("customers").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) console.error("update customer:", error);
   };
 
   const deleteCustomer = async (id: string) => {
     setCustomers(prev => prev.filter(c => c.id !== id));
-    void supabase.from("customers").delete().eq("id", id);
+    const { error } = await supabase.from("customers").delete().eq("id", id);
+    if (error) console.error("delete customer:", error);
   };
 
   const addMarketingMetric = async (m: Omit<MarketingMetrics, "id" | "company_id" | "created_at" | "updated_at">) => {
@@ -181,12 +186,14 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
 
   const updateMarketingMetric = async (id: string, updates: Partial<MarketingMetrics>) => {
     setMarketingMetrics(prev => prev.map(m => m.id === id ? { ...m, ...updates, updated_at: new Date().toISOString() } : m));
-    void supabase.from("marketing_metrics").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("marketing_metrics").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) console.error("update marketing_metric:", error);
   };
 
   const deleteMarketingMetric = async (id: string) => {
     setMarketingMetrics(prev => prev.filter(m => m.id !== id));
-    void supabase.from("marketing_metrics").delete().eq("id", id);
+    const { error } = await supabase.from("marketing_metrics").delete().eq("id", id);
+    if (error) console.error("delete marketing_metric:", error);
   };
 
   return (
