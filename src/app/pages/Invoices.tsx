@@ -1,8 +1,12 @@
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, Zap, AlertCircle, Search, CheckCircle, Pencil, Trash2, X, Loader2, Sparkles } from "lucide-react";
+import { Plus, Zap, AlertCircle, Search, CheckCircle, Pencil, Trash2, Loader2, Sparkles } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
-import { useCurrency } from '../contexts/CurrencyContext';
+import { useCurrency } from "../contexts/CurrencyContext";
+import { Overlay, Field, inputCls, useToast } from "../components/Modal";
+import { GlassCard }   from "../components/ui/GlassCard";
+import { PageHeader }  from "../components/ui/PageHeader";
+import { SearchInput } from "../components/ui/SearchInput";
 import type { Transaction } from "@shared/types";
 
 const STATUS_MAP: Record<string, string> = {
@@ -11,18 +15,24 @@ const STATUS_MAP: Record<string, string> = {
   cancelled: "Remboursement",
 };
 
+const STATUS_CLS: Record<string, string> = {
+  Payée:          "bg-accent-blue/20 text-accent-blue",
+  Remboursement:  "bg-purple-500/20 text-purple-400",
+  Émise:          "bg-yellow-500/20 text-yellow-500",
+};
+
 const CATEGORIES = ["Salaries", "Marketing", "Direct Costs", "Operations", "Financing", "Consulting", "Autre"];
 
 type ModalMode = "add" | "edit" | "delete" | "ai" | null;
 
 interface InvoiceRow {
-  id: string;
-  number: string;
-  supplier: string;
-  category: string;
-  dueDate: string;
-  amount: number;
-  status: string;
+  id:        string;
+  number:    string;
+  supplier:  string;
+  category:  string;
+  dueDate:   string;
+  amount:    number;
+  status:    string;
   rawStatus: Transaction["payment_status"];
 }
 
@@ -35,16 +45,25 @@ const EMPTY_FORM = {
   description:    "",
 };
 
+const AI_STEPS = [
+  "Analyse du document en cours…",
+  "Extraction des données fournisseur…",
+  "Reconnaissance des montants et dates…",
+  "Pré-remplissage du formulaire…",
+];
+
 export function Invoices() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useMetrics();
   const { format } = useCurrency();
-  const [searchTerm, setSearchTerm]     = useState("");
+  const { show, ToastEl } = useToast();
+
+  const [searchTerm,   setSearchTerm]   = useState("");
   const [statusFilter, setStatusFilter] = useState("Tous");
-  const [modal, setModal]               = useState<ModalMode>(null);
-  const [selected, setSelected]         = useState<InvoiceRow | null>(null);
-  const [form, setForm]                 = useState(EMPTY_FORM);
-  const [aiStep, setAiStep]             = useState(0);
-  const [saving, setSaving]             = useState(false);
+  const [modal,        setModal]        = useState<ModalMode>(null);
+  const [selected,     setSelected]     = useState<InvoiceRow | null>(null);
+  const [form,         setForm]         = useState(EMPTY_FORM);
+  const [aiStep,       setAiStep]       = useState(0);
+  const [saving,       setSaving]       = useState(false);
 
   const invoices = useMemo<InvoiceRow[]>(() =>
     transactions
@@ -63,41 +82,27 @@ export function Invoices() {
   [transactions]);
 
   const filtered = invoices.filter(i => {
+    const q = searchTerm.toLowerCase();
     const matchSearch =
-      i.supplier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchStatus = statusFilter === "Tous" || i.status === statusFilter;
-    return matchSearch && matchStatus;
+      i.supplier.toLowerCase().includes(q) ||
+      i.number.toLowerCase().includes(q) ||
+      i.category.toLowerCase().includes(q);
+    return matchSearch && (statusFilter === "Tous" || i.status === statusFilter);
   });
 
-  const paidAmount      = invoices.filter(i => i.status === "Payée").reduce((s, i) => s + i.amount, 0);
-  const unpaidAmount    = invoices.filter(i => i.status === "Émise").reduce((s, i) => s + i.amount, 0);
-  const refundList      = invoices.filter(i => i.status === "Remboursement");
-  const refundAmount    = refundList.reduce((s, i) => s + i.amount, 0);
+  const paidAmount   = invoices.filter(i => i.status === "Payée").reduce((s, i) => s + i.amount, 0);
+  const unpaidAmount = invoices.filter(i => i.status === "Émise").reduce((s, i) => s + i.amount, 0);
+  const refundList   = invoices.filter(i => i.status === "Remboursement");
+  const refundAmount = refundList.reduce((s, i) => s + i.amount, 0);
 
-  function openAdd() {
-    setForm(EMPTY_FORM);
-    setSelected(null);
-    setModal("add");
-  }
+  const f = (k: keyof typeof form, v: string) => setForm(prev => ({ ...prev, [k]: v }));
+
+  function openAdd() { setForm(EMPTY_FORM); setSelected(null); setModal("add"); }
 
   function openEdit(row: InvoiceRow) {
-    setForm({
-      label:          row.supplier,
-      category:       row.category,
-      amount:         String(row.amount),
-      date:           row.dueDate,
-      payment_status: row.rawStatus,
-      description:    "",
-    });
+    setForm({ label: row.supplier, category: row.category, amount: String(row.amount), date: row.dueDate, payment_status: row.rawStatus, description: "" });
     setSelected(row);
     setModal("edit");
-  }
-
-  function openDelete(row: InvoiceRow) {
-    setSelected(row);
-    setModal("delete");
   }
 
   async function handleMarkPaid(row: InvoiceRow) {
@@ -108,25 +113,9 @@ export function Invoices() {
     if (!form.label.trim() || !form.amount) return;
     setSaving(true);
     if (modal === "add") {
-      await addTransaction({
-        type:           "expense",
-        label:          form.label.trim(),
-        category:       form.category,
-        amount:         parseFloat(form.amount),
-        date:           form.date,
-        payment_status: form.payment_status,
-        currency:       "CHF",
-        recurring:      false,
-        description:    form.description || undefined,
-      });
+      await addTransaction({ type: "expense", label: form.label.trim(), category: form.category, amount: parseFloat(form.amount), date: form.date, payment_status: form.payment_status, currency: "CHF", recurring: false, description: form.description || undefined });
     } else if (modal === "edit" && selected) {
-      await updateTransaction(selected.id, {
-        label:          form.label.trim(),
-        category:       form.category,
-        amount:         parseFloat(form.amount),
-        date:           form.date,
-        payment_status: form.payment_status,
-      });
+      await updateTransaction(selected.id, { label: form.label.trim(), category: form.category, amount: parseFloat(form.amount), date: form.date, payment_status: form.payment_status });
     }
     setSaving(false);
     setModal(null);
@@ -143,59 +132,47 @@ export function Invoices() {
   function startAI() {
     setAiStep(0);
     setModal("ai");
-    const steps = [500, 1200, 2000, 2800];
-    steps.forEach((delay, i) => setTimeout(() => setAiStep(i + 1), delay));
+    [500, 1200, 2000, 2800].forEach((delay, i) => setTimeout(() => setAiStep(i + 1), delay));
   }
-
-  const f = (k: keyof typeof form, v: string) => setForm(prev => ({ ...prev, [k]: v }));
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-5xl font-semibold text-foreground mb-2 tracking-tight">Factures</h1>
-          <p className="text-muted-foreground text-lg">Gérez vos factures fournisseurs et suivi des paiements</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={startAI}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors shadow-lg"
-          >
-            <Zap className="w-5 h-5" />
-            AI Extraction
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={openAdd}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-background hover:bg-white/90 transition-colors shadow-lg"
-          >
-            <Plus className="w-5 h-5" />
-            Ajouter une facture
-          </motion.button>
-        </div>
-      </div>
+      {ToastEl}
+
+      <PageHeader
+        title="Factures"
+        subtitle="Gérez vos factures fournisseurs et suivi des paiements"
+        action={
+          <>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={startAI}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors shadow-lg">
+              <Zap className="w-5 h-5" /> AI Extraction
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={openAdd}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-background hover:bg-white/90 transition-colors shadow-lg">
+              <Plus className="w-5 h-5" /> Ajouter une facture
+            </motion.button>
+          </>
+        }
+      />
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
+        <GlassCard delay={0}>
           <p className="text-sm text-muted-foreground mb-2">Factures payées</p>
           <p className="text-3xl font-semibold text-accent-blue">{format(paidAmount)}</p>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
+        </GlassCard>
+        <GlassCard delay={0.1}>
           <p className="text-sm text-muted-foreground mb-2">Factures en attente</p>
           <p className="text-3xl font-semibold text-yellow-500">{format(unpaidAmount)}</p>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl p-6 backdrop-blur-xl border border-purple-500/30" style={{ background: "var(--glass-bg)" }}>
+        </GlassCard>
+        <GlassCard delay={0.2} className="border-purple-500/30">
           <p className="text-sm text-muted-foreground mb-2">Remboursements</p>
           <p className="text-3xl font-semibold text-purple-400">−{format(refundAmount)}</p>
-        </motion.div>
+        </GlassCard>
       </div>
 
-      {/* Alert */}
+      {/* Refund alert */}
       {refundList.length > 0 && (
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-start gap-3 p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
           <AlertCircle className="w-5 h-5 text-purple-400 mt-0.5" />
@@ -206,18 +183,14 @@ export function Invoices() {
         </motion.div>
       )}
 
-      {/* Search and Filter */}
+      {/* Search & Filter */}
       <div className="flex items-center gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Rechercher par fournisseur, numéro ou catégorie..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-xl bg-secondary/50 border border-glass-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all backdrop-blur-xl"
-          />
-        </div>
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Rechercher par fournisseur, numéro ou catégorie..."
+          className="flex-1"
+        />
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -231,18 +204,14 @@ export function Invoices() {
       </div>
 
       {/* Invoices Table */}
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="rounded-2xl backdrop-blur-xl border border-glass-border overflow-hidden" style={{ background: "var(--glass-bg)" }}>
+      <GlassCard delay={0.3} noPadding>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-glass-border">
-                <th className="text-left  p-4 text-sm font-semibold text-muted-foreground">Référence</th>
-                <th className="text-left  p-4 text-sm font-semibold text-muted-foreground">Fournisseur</th>
-                <th className="text-left  p-4 text-sm font-semibold text-muted-foreground">Catégorie</th>
-                <th className="text-left  p-4 text-sm font-semibold text-muted-foreground">Date</th>
-                <th className="text-right p-4 text-sm font-semibold text-muted-foreground">Montant TTC</th>
-                <th className="text-center p-4 text-sm font-semibold text-muted-foreground">Statut</th>
-                <th className="text-right p-4 text-sm font-semibold text-muted-foreground">Actions</th>
+                {["Référence","Fournisseur","Catégorie","Date","Montant TTC","Statut","Actions"].map((h, i) => (
+                  <th key={h} className={`p-4 text-sm font-semibold text-muted-foreground ${i >= 4 ? (i === 6 ? "text-right" : i === 5 ? "text-center" : "text-right") : "text-left"}`}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -262,40 +231,19 @@ export function Invoices() {
                     {invoice.status === "Remboursement" ? `−${format(invoice.amount)}` : format(invoice.amount)}
                   </td>
                   <td className="p-4 text-center">
-                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                      invoice.status === "Payée"         ? "bg-accent-blue/20 text-accent-blue"
-                    : invoice.status === "Remboursement" ? "bg-purple-500/20 text-purple-400"
-                    :                                      "bg-yellow-500/20 text-yellow-500"
-                    }`}>
-                      {invoice.status}
-                    </span>
+                    <span className={`px-3 py-1 rounded-lg text-xs font-medium ${STATUS_CLS[invoice.status] ?? ""}`}>{invoice.status}</span>
                   </td>
                   <td className="p-4">
                     <div className="flex items-center justify-end gap-2">
                       {invoice.status !== "Payée" && (
-                        <motion.button
-                          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                          onClick={() => handleMarkPaid(invoice)}
-                          title="Marquer comme payée"
-                          className="p-2 rounded-lg hover:bg-accent-blue/20 transition-colors"
-                        >
+                        <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => handleMarkPaid(invoice)} title="Marquer comme payée" className="p-2 rounded-lg hover:bg-accent-blue/20 transition-colors">
                           <CheckCircle className="w-4 h-4 text-accent-blue" />
                         </motion.button>
                       )}
-                      <motion.button
-                        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                        onClick={() => openEdit(invoice)}
-                        title="Modifier"
-                        className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-                      >
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => openEdit(invoice)} title="Modifier" className="p-2 rounded-lg hover:bg-white/10 transition-colors">
                         <Pencil className="w-4 h-4 text-muted-foreground" />
                       </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                        onClick={() => openDelete(invoice)}
-                        title="Supprimer"
-                        className="p-2 rounded-lg hover:bg-accent-red/20 transition-colors"
-                      >
+                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => { setSelected(invoice); setModal("delete"); }} title="Supprimer" className="p-2 rounded-lg hover:bg-accent-red/20 transition-colors">
                         <Trash2 className="w-4 h-4 text-accent-red" />
                       </motion.button>
                     </div>
@@ -308,28 +256,19 @@ export function Invoices() {
             <div className="text-center py-12 text-muted-foreground">Aucune facture trouvée.</div>
           )}
         </div>
-      </motion.div>
+      </GlassCard>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       <AnimatePresence>
-        {/* Add / Edit Modal */}
         {(modal === "add" || modal === "edit") && (
           <Overlay onClose={() => setModal(null)}>
             <h2 className="text-xl font-semibold text-foreground mb-6">
               {modal === "add" ? "Nouvelle facture" : "Modifier la facture"}
             </h2>
-
             <div className="space-y-4">
               <Field label="Fournisseur">
-                <input
-                  type="text"
-                  value={form.label}
-                  onChange={e => f("label", e.target.value)}
-                  placeholder="Ex: AWS, Loyer, Prestataire…"
-                  className={inputCls}
-                />
+                <input type="text" value={form.label} onChange={e => f("label", e.target.value)} placeholder="Ex: AWS, Loyer, Prestataire…" className={inputCls} />
               </Field>
-
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Catégorie">
                   <select value={form.category} onChange={e => f("category", e.target.value)} className={inputCls}>
@@ -344,50 +283,22 @@ export function Invoices() {
                   </select>
                 </Field>
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Montant (CHF)">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.amount}
-                    onChange={e => f("amount", e.target.value)}
-                    placeholder="0.00"
-                    className={inputCls}
-                  />
+                  <input type="number" min="0" step="0.01" value={form.amount} onChange={e => f("amount", e.target.value)} placeholder="0.00" className={inputCls} />
                 </Field>
                 <Field label="Date">
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={e => f("date", e.target.value)}
-                    className={inputCls}
-                  />
+                  <input type="date" value={form.date} onChange={e => f("date", e.target.value)} className={inputCls} />
                 </Field>
               </div>
-
               <Field label="Description (optionnel)">
-                <input
-                  type="text"
-                  value={form.description}
-                  onChange={e => f("description", e.target.value)}
-                  placeholder="Note interne…"
-                  className={inputCls}
-                />
+                <input type="text" value={form.description} onChange={e => f("description", e.target.value)} placeholder="Note interne…" className={inputCls} />
               </Field>
             </div>
-
             <div className="flex justify-end gap-3 mt-8">
-              <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">
-                Annuler
-              </button>
-              <motion.button
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                onClick={handleSave}
-                disabled={saving || !form.label.trim() || !form.amount}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors disabled:opacity-50"
-              >
+              <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">Annuler</button>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleSave} disabled={saving || !form.label.trim() || !form.amount}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors disabled:opacity-50">
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {modal === "add" ? "Ajouter" : "Enregistrer"}
               </motion.button>
@@ -395,7 +306,6 @@ export function Invoices() {
           </Overlay>
         )}
 
-        {/* Delete Confirmation */}
         {modal === "delete" && selected && (
           <Overlay onClose={() => setModal(null)} small>
             <div className="flex items-center gap-3 mb-4">
@@ -408,15 +318,9 @@ export function Invoices() {
               <span className="font-medium text-foreground">{selected.supplier}</span> — {format(selected.amount)} du {selected.dueDate} sera définitivement supprimée.
             </p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">
-                Annuler
-              </button>
-              <motion.button
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                onClick={handleDelete}
-                disabled={saving}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors disabled:opacity-50"
-              >
+              <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">Annuler</button>
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleDelete} disabled={saving}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors disabled:opacity-50">
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 Supprimer
               </motion.button>
@@ -424,7 +328,6 @@ export function Invoices() {
           </Overlay>
         )}
 
-        {/* AI Extraction Modal */}
         {modal === "ai" && (
           <Overlay onClose={aiStep >= 4 ? () => setModal(null) : undefined} small>
             <div className="flex items-center gap-3 mb-6">
@@ -433,14 +336,8 @@ export function Invoices() {
               </div>
               <h2 className="text-lg font-semibold text-foreground">AI Extraction</h2>
             </div>
-
             <div className="space-y-3 mb-6">
-              {[
-                "Analyse du document en cours…",
-                "Extraction des données fournisseur…",
-                "Reconnaissance des montants et dates…",
-                "Pré-remplissage du formulaire…",
-              ].map((label, i) => (
+              {AI_STEPS.map((label, i) => (
                 <div key={i} className="flex items-center gap-3">
                   {aiStep > i
                     ? <CheckCircle className="w-5 h-5 text-accent-blue shrink-0" />
@@ -452,7 +349,6 @@ export function Invoices() {
                 </div>
               ))}
             </div>
-
             {aiStep >= 4 && (
               <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
                 <p className="text-sm text-muted-foreground mb-4">Extraction terminée. Veuillez vérifier et compléter les champs avant d'enregistrer.</p>
@@ -475,44 +371,5 @@ export function Invoices() {
         )}
       </AnimatePresence>
     </div>
-  );
-}
-
-const inputCls = "w-full px-4 py-2.5 rounded-xl bg-secondary/50 border border-glass-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all";
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-muted-foreground mb-1.5">{label}</label>
-      {children}
-    </div>
-  );
-}
-
-function Overlay({ children, onClose, small }: { children: React.ReactNode; onClose?: () => void; small?: boolean }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
-      onClick={onClose ? (e) => { if (e.target === e.currentTarget) onClose(); } : undefined}
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        className={`relative rounded-2xl p-8 border border-glass-border shadow-2xl w-full ${small ? "max-w-md" : "max-w-lg"}`}
-        style={{ background: "var(--popover)" }}
-      >
-        {onClose && (
-          <button onClick={onClose} className="absolute top-4 right-4 p-1.5 rounded-lg hover:bg-white/10 transition-colors">
-            <X className="w-4 h-4 text-muted-foreground" />
-          </button>
-        )}
-        {children}
-      </motion.div>
-    </motion.div>
   );
 }
