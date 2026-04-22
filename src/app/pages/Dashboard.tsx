@@ -470,7 +470,7 @@ function KPICard({ icon: Icon, label, value, sub, trend, trendUp, highlight, com
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export function Dashboard() {
-  const { metrics, monthlyChartData, expensesByCategory, transactions, calculator } = useMetrics();
+  const { metrics, transactions } = useMetrics();
   const { format } = useCurrency();
   const { dateRange, comparisonRange } = useDateRange();
   const [showComparator, setShowComparator] = useState(false);
@@ -487,14 +487,13 @@ export function Dashboard() {
     [transactions, comparisonRange],
   );
 
-  // Trend helper
-  const mkTrend = (curr: number, prev: number | null | undefined, invertColor = false) => {
+  // Trend helper — color always follows sign: + = blue, - = red
+  const mkTrend = (curr: number, prev: number | null | undefined) => {
     if (prev == null) return { trend: undefined, trendUp: undefined, compValue: undefined };
     const pct = prev !== 0 ? ((curr - prev) / Math.abs(prev) * 100) : 0;
-    const up  = invertColor ? pct <= 0 : pct >= 0;
     return {
       trend:     `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
-      trendUp:   up,
+      trendUp:   pct >= 0,
       compValue: format(prev),
     };
   };
@@ -531,63 +530,89 @@ export function Dashboard() {
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 6);
 
-  // Monthly net cashflow for bar chart
-  const cashTrendData = calculator.getMonthlyCashTrend(6);
+  // ── Shared period sum helper ───────────────────────────────────────────────
+  const sumTx = (type: 'income' | 'expense', f: string, t: string) =>
+    transactions
+      .filter(tx => tx.payment_status === 'completed' && tx.type === type && tx.date >= f && tx.date < t)
+      .reduce((s, tx) => s + tx.amount, 0);
 
-  // ── Revenue vs Expenses zoom ───────────────────────────────────────────────
-  type Zoom = '6m' | '3m' | '1m' | '7j';
-  const [zoom, setZoom] = useState<Zoom>('6m');
+  // ── Revenue vs Expenses chart — follows selected dateRange ─────────────────
+  const dateRangeChartData = useMemo(() => {
+    const durationDays = (dateRange.to.getTime() - dateRange.from.getTime()) / 86400000;
 
-  const zoomedChartData = useMemo(() => {
-    const ref = new Date();
-    const sumTx = (type: 'income' | 'expense', from: string, to: string) =>
-      transactions
-        .filter(t => t.payment_status === 'completed' && t.type === type && t.date >= from && t.date < to)
-        .reduce((s, t) => s + t.amount, 0);
-
-    if (zoom === '6m') return monthlyChartData;
-
-    if (zoom === '3m') {
-      return Array.from({ length: 3 }, (_, i) => {
-        const monthsAgo = 2 - i;
-        const start = new Date(Date.UTC(ref.getFullYear(), ref.getMonth() - monthsAgo, 1));
-        const end   = new Date(Date.UTC(ref.getFullYear(), ref.getMonth() - monthsAgo + 1, 1));
-        return {
-          month:    start.toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' }),
-          revenue:  calculator.getRevenueForPeriod(start, end),
-          expenses: calculator.getExpensesForPeriod(start, end),
-        };
+    if (durationDays <= 14) {
+      return Array.from({ length: Math.max(1, Math.ceil(durationDays)) }, (_, i) => {
+        const d = new Date(dateRange.from.getTime() + i * 86400000);
+        const f = d.toISOString().slice(0, 10);
+        const t = new Date(d.getTime() + 86400000).toISOString().slice(0, 10);
+        return { month: d.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' }), revenue: sumTx('income', f, t), expenses: sumTx('expense', f, t) };
       });
     }
 
-    if (zoom === '1m') {
-      return Array.from({ length: 4 }, (_, i) => {
-        const daysBack = (3 - i) * 7;
-        const from = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysBack - 6));
-        const to   = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysBack + 1));
-        const fromStr = from.toISOString().slice(0, 10);
-        const toStr   = to.toISOString().slice(0, 10);
-        return {
-          month:    `${from.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' })}`,
-          revenue:  sumTx('income',  fromStr, toStr),
-          expenses: sumTx('expense', fromStr, toStr),
-        };
+    if (durationDays <= 90) {
+      const weeks = Math.ceil(durationDays / 7);
+      return Array.from({ length: weeks }, (_, i) => {
+        const from = new Date(dateRange.from.getTime() + i * 7 * 86400000);
+        const to   = new Date(Math.min(from.getTime() + 7 * 86400000, dateRange.to.getTime()));
+        const f = from.toISOString().slice(0, 10);
+        const t = to.toISOString().slice(0, 10);
+        return { month: from.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' }), revenue: sumTx('income', f, t), expenses: sumTx('expense', f, t) };
       });
     }
 
-    // 7j — daily
-    return Array.from({ length: 7 }, (_, i) => {
-      const daysAgo = 6 - i;
-      const d    = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysAgo));
-      const from = d.toISOString().slice(0, 10);
-      const to   = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysAgo + 1)).toISOString().slice(0, 10);
-      return {
-        month:    d.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' }),
-        revenue:  sumTx('income',  from, to),
-        expenses: sumTx('expense', from, to),
-      };
+    // Monthly granularity
+    const result: { month: string; revenue: number; expenses: number }[] = [];
+    let cur = new Date(Date.UTC(dateRange.from.getUTCFullYear(), dateRange.from.getUTCMonth(), 1));
+    while (cur < dateRange.to) {
+      const next = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1));
+      const f = (cur < dateRange.from ? dateRange.from : cur).toISOString().slice(0, 10);
+      const t = (next > dateRange.to ? dateRange.to : next).toISOString().slice(0, 10);
+      result.push({ month: cur.toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' }), revenue: sumTx('income', f, t), expenses: sumTx('expense', f, t) });
+      cur = next;
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, dateRange]);
+
+  // ── Expenses by category — follows selected dateRange ─────────────────────
+  const CATEGORY_COLORS: Record<string, string> = {
+    'Salaries': 'var(--accent-red)', 'Marketing': 'var(--accent-blue)',
+    'Operations': '#8b5cf6', 'Direct Costs': '#f59e0b',
+    'Financing': '#10b981', 'Consulting': '#ec4899', 'Subscriptions': '#06b6d4',
+  };
+  const FALLBACK_COLORS = ['#ef4444','#3b82f6','#8b5cf6','#f59e0b','#10b981','#ec4899','#06b6d4'];
+
+  const periodExpensesByCategory = useMemo(() => {
+    const fromStr = dateRange.from.toISOString().slice(0, 10);
+    const toStr   = dateRange.to.toISOString().slice(0, 10);
+    const map = new Map<string, number>();
+    transactions.forEach(t => {
+      if (t.type !== 'expense' || t.payment_status !== 'completed') return;
+      const d = t.date.slice(0, 10);
+      if (d < fromStr || d >= toStr) return;
+      map.set(t.category, (map.get(t.category) ?? 0) + t.amount);
     });
-  }, [zoom, monthlyChartData, transactions, calculator]);
+    let fi = 0;
+    return Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] ?? FALLBACK_COLORS[fi++ % FALLBACK_COLORS.length] }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, dateRange]);
+
+  // ── Monthly cashflow — follows selected dateRange ──────────────────────────
+  const periodCashTrend = useMemo(() => {
+    const result: { month: string; netFlow: number }[] = [];
+    let cur = new Date(Date.UTC(dateRange.from.getUTCFullYear(), dateRange.from.getUTCMonth(), 1));
+    while (cur < dateRange.to) {
+      const next = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1));
+      const f = (cur < dateRange.from ? dateRange.from : cur).toISOString().slice(0, 10);
+      const t = (next > dateRange.to ? dateRange.to : next).toISOString().slice(0, 10);
+      result.push({ month: cur.toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' }), netFlow: sumTx('income', f, t) - sumTx('expense', f, t) });
+      cur = next;
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions, dateRange]);
 
   return (
     <div className="p-8 space-y-8">
@@ -641,7 +666,7 @@ export function Dashboard() {
           icon={TrendingDown}
           label={`Dépenses — ${rangeLabel}`}
           value={format(periodMetrics.exp)}
-          {...mkTrend(periodMetrics.exp, prevMetrics?.exp, true)}
+          {...mkTrend(periodMetrics.exp, prevMetrics?.exp)}
         />
         <KPICard
           icon={BarChart2}
@@ -655,7 +680,7 @@ export function Dashboard() {
           icon={Flame}
           label="Burn rate (période)"
           value={format(periodBurnRate)}
-          {...mkTrend(periodBurnRate, prevBurnRate, true)}
+          {...mkTrend(periodBurnRate, prevBurnRate)}
         />
         <KPICard
           icon={Clock}
@@ -678,23 +703,10 @@ export function Dashboard() {
           style={{ background: "var(--glass-bg)" }}
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-foreground">Revenus vs Dépenses</h3>
-            <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-glass-border">
-              {(['7j', '1m', '3m', '6m'] as const).map(z => (
-                <button
-                  key={z}
-                  onClick={() => setZoom(z)}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                    zoom === z ? 'bg-accent-blue text-white' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {z.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            <h3 className="text-xl font-semibold text-foreground">Revenus vs Dépenses — {rangeLabel}</h3>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={zoomedChartData}>
+            <LineChart data={dateRangeChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="month" stroke="var(--muted-foreground)" />
               <YAxis stroke="var(--muted-foreground)" tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
@@ -726,7 +738,7 @@ export function Dashboard() {
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
-                data={expensesByCategory}
+                data={periodExpensesByCategory}
                 cx="50%"
                 cy="50%"
                 labelLine={false}
@@ -734,7 +746,7 @@ export function Dashboard() {
                 outerRadius={100}
                 dataKey="value"
               >
-                {expensesByCategory.map(entry => (
+                {periodExpensesByCategory.map(entry => (
                   <Cell key={`pie-${entry.name}`} fill={entry.color} />
                 ))}
               </Pie>
@@ -757,9 +769,9 @@ export function Dashboard() {
         className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border"
         style={{ background: "var(--glass-bg)" }}
       >
-        <h3 className="text-xl font-semibold text-foreground mb-6">Cashflow net mensuel (6 mois)</h3>
+        <h3 className="text-xl font-semibold text-foreground mb-6">Cashflow net mensuel — {rangeLabel}</h3>
         <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={cashTrendData}>
+          <BarChart data={periodCashTrend}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
             <XAxis dataKey="month" stroke="var(--muted-foreground)" />
             <YAxis stroke="var(--muted-foreground)" tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
@@ -774,7 +786,7 @@ export function Dashboard() {
               name="Cashflow net"
               radius={[6, 6, 0, 0]}
             >
-              {cashTrendData.map((entry, idx) => (
+              {periodCashTrend.map((entry, idx) => (
                 <Cell
                   key={`cf-${idx}`}
                   fill={entry.netFlow >= 0 ? "var(--accent-blue)" : "var(--accent-red)"}
