@@ -8,6 +8,7 @@ import { GlassCard }   from "../components/ui/GlassCard";
 import { PageHeader }  from "../components/ui/PageHeader";
 import { StatCard }    from "../components/ui/StatCard";
 import { SearchInput } from "../components/ui/SearchInput";
+import { EASE }        from "../lib/animations";
 import type { Customer } from "@shared/types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -128,9 +129,10 @@ export function Clients() {
         subtitle="Gérez votre portefeuille client et relations"
         action={
           <motion.button
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.02, transition: { duration: 0.15 } }}
+            whileTap={{ scale: 0.98 }}
             onClick={openAdd}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors shadow-lg"
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors duration-150 shadow-lg"
           >
             <Plus className="w-5 h-5" />
             Ajouter un client
@@ -140,10 +142,10 @@ export function Clients() {
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-6">
-        <StatCard label="Total Clients"  value={String(customers.length)}          delay={0} />
-        <StatCard label="Clients Actifs" value={String(metrics.activeCustomers)}   delay={0.1} highlight />
-        <StatCard label="Revenu Total"   value={format(totalRevenue)}              delay={0.2} />
-        <StatCard label="Revenu Moyen"   value={format(avgRevenue)}                delay={0.3} />
+        <StatCard label="Total Clients"  value={String(customers.length)}        delay={0}   />
+        <StatCard label="Clients Actifs" value={String(metrics.activeCustomers)} delay={0.06} highlight />
+        <StatCard label="Revenu Total"   value={format(totalRevenue)}            delay={0.12} />
+        <StatCard label="Revenu Moyen"   value={format(avgRevenue)}              delay={0.18} />
       </div>
 
       {/* Filters */}
@@ -157,7 +159,7 @@ export function Clients() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-6 py-3 rounded-xl border border-glass-border text-foreground focus:outline-none focus:border-accent-blue/40 transition-all backdrop-blur-xl"
+          className="px-6 py-3 rounded-xl border border-glass-border text-foreground focus:outline-none focus:border-accent-blue/40 transition-[border-color] duration-150 backdrop-blur-xl"
           style={{ background: "var(--glass-bg)" }}
         >
           <option value="Tous">Tous les statuts</option>
@@ -167,64 +169,104 @@ export function Clients() {
         </select>
       </div>
 
-      {/* Client list */}
-      <div className="grid grid-cols-1 gap-4">
-        {filtered.map((client, index) => (
-          <GlassCard
-            key={client.id}
-            delay={0.4 + index * 0.04}
-            hover
-            className="hover:border-accent-red/20 transition-all"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-6 flex-1">
-                <div className="w-14 h-14 rounded-xl bg-accent-red flex items-center justify-center text-white text-xl font-semibold shadow-lg shrink-0">
-                  {client.name.charAt(0)}
+      {/* ─── Client list ───────────────────────────────────────────────────────
+        ✅ AnimatePresence mode="popLayout" :
+           - Quand un client est supprimé, les autres se repositionnent en douceur
+           - `initial={false}` évite que les items existants re-animent au mount
+        ✅ GlassCard reçoit `layout` → Framer Motion recalcule les positions
+        ✅ GlassCard reçoit `exit` → animation de sortie propre
+        ✅ Delay capé à 0.5s max (était: 0.4 + index * 0.04, sans limite !)
+           → avec 20 clients, le dernier attendait 1.2s avant d'apparaître
+      ─────────────────────────────────────────────────────────────────────── */}
+      <motion.div layout className="grid grid-cols-1 gap-4">
+        <AnimatePresence mode="popLayout" initial={false}>
+          {filtered.map((client, index) => (
+            <GlassCard
+              key={client.id}
+              layout
+              // ✅ Delay plafonné — peu importe la taille de la liste
+              delay={Math.min(0.1 + index * 0.04, 0.5)}
+              // ✅ Exit animation — sans ça, la suppression était instantanée
+              exit={{
+                opacity: 0,
+                x: 20,
+                scale: 0.98,
+                transition: { duration: 0.2, ease: EASE },
+              }}
+              hover
+              className="hover:border-accent-red/20 transition-[border-color] duration-200"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6 flex-1">
+                  <div className="w-14 h-14 rounded-xl bg-accent-red flex items-center justify-center text-white text-xl font-semibold shadow-lg shrink-0">
+                    {client.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 grid grid-cols-4 gap-6">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Client</p>
+                      <p className="font-semibold text-foreground">{client.name}</p>
+                      {client.segment && (
+                        <p className="text-sm text-muted-foreground">{client.segment}</p>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Canal d'acquisition</p>
+                      <p className="text-sm text-foreground">{client.acquisition_channel ?? "—"}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Depuis {new Date(client.acquisition_date).toLocaleDateString("fr-CH", { month: "short", year: "numeric" })}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">MRR</p>
+                      <p className="text-lg font-semibold text-foreground">{format(client.monthly_revenue)}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Marge {client.gross_margin_percent.toFixed(2)}% · {format(client.monthly_revenue * client.gross_margin_percent / 100)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Revenu total</p>
+                      <p className="text-lg font-semibold text-foreground">{format(client.total_revenue)}</p>
+                      <span className={`inline-block px-3 py-1 rounded-lg text-xs font-medium mt-1 ${STATUS_CLS[client.status]}`}>
+                        {STATUS_LABEL[client.status]}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1 grid grid-cols-4 gap-6">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Client</p>
-                    <p className="font-semibold text-foreground">{client.name}</p>
-                    {client.segment && <p className="text-sm text-muted-foreground">{client.segment}</p>}
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Canal d'acquisition</p>
-                    <p className="text-sm text-foreground">{client.acquisition_channel ?? "—"}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Depuis {new Date(client.acquisition_date).toLocaleDateString("fr-CH", { month: "short", year: "numeric" })}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">MRR</p>
-                    <p className="text-lg font-semibold text-foreground">{format(client.monthly_revenue)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Marge {client.gross_margin_percent.toFixed(2)}% · {format(client.monthly_revenue * client.gross_margin_percent / 100)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">Revenu total</p>
-                    <p className="text-lg font-semibold text-foreground">{format(client.total_revenue)}</p>
-                    <span className={`inline-block px-3 py-1 rounded-lg text-xs font-medium mt-1 ${STATUS_CLS[client.status]}`}>
-                      {STATUS_LABEL[client.status]}
-                    </span>
-                  </div>
+                <div className="flex items-center gap-2 ml-6">
+                  <motion.button
+                    whileHover={{ scale: 1.1, transition: { duration: 0.12 } }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => openEdit(client)}
+                    title="Modifier"
+                    className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-150"
+                  >
+                    <Edit className="w-5 h-5 text-muted-foreground hover:text-accent-blue transition-colors duration-150" />
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.1, transition: { duration: 0.12 } }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => { setSelected(client); setModal("delete"); }}
+                    title="Supprimer"
+                    className="p-2 rounded-lg hover:bg-accent-red/10 transition-colors duration-150"
+                  >
+                    <Trash2 className="w-5 h-5 text-accent-red" />
+                  </motion.button>
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-6">
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => openEdit(client)} title="Modifier" className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                  <Edit className="w-5 h-5 text-muted-foreground hover:text-accent-blue transition-colors" />
-                </motion.button>
-                <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => { setSelected(client); setModal("delete"); }} title="Supprimer" className="p-2 rounded-lg hover:bg-accent-red/10 transition-colors">
-                  <Trash2 className="w-5 h-5 text-accent-red" />
-                </motion.button>
-              </div>
-            </div>
-          </GlassCard>
-        ))}
+            </GlassCard>
+          ))}
+        </AnimatePresence>
+
         {filtered.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">Aucun client trouvé.</div>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-center py-12 text-muted-foreground"
+          >
+            Aucun client trouvé.
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
       {/* Modals */}
       <AnimatePresence>
@@ -272,12 +314,18 @@ export function Clients() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-8">
-              <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">Annuler</button>
+              <button
+                onClick={() => setModal(null)}
+                className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors duration-150"
+              >
+                Annuler
+              </button>
               <motion.button
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1.02, transition: { duration: 0.15 } }}
+                whileTap={{ scale: 0.98 }}
                 onClick={handleSave}
                 disabled={saving || !form.name.trim()}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors duration-150 disabled:opacity-50"
               >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {modal === "add" ? "Ajouter" : "Enregistrer"}

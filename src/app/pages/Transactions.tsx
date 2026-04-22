@@ -8,6 +8,7 @@ import { GlassCard }   from "../components/ui/GlassCard";
 import { PageHeader }  from "../components/ui/PageHeader";
 import { StatCard }    from "../components/ui/StatCard";
 import { SearchInput } from "../components/ui/SearchInput";
+import { EASE }        from "../lib/animations";
 import type { Transaction } from "@shared/types";
 
 const TX_CATEGORIES = ["Subscriptions","Consulting","Revenue","Marketing","Salaries","Direct Costs","Operations","Financing"];
@@ -43,8 +44,8 @@ export function Transactions() {
       .filter(t => {
         const q = searchTerm.toLowerCase();
         const matchSearch = !q || t.label.toLowerCase().includes(q) || t.category.toLowerCase().includes(q);
-        const matchType   = filterType === "Tous les types"       || (filterType === "Revenu" && t.type === "income") || (filterType === "Dépense" && t.type === "expense");
-        const matchCat    = filterCat  === "Toutes catégories"    || t.category === filterCat;
+        const matchType   = filterType === "Tous les types"    || (filterType === "Revenu"  && t.type === "income")  || (filterType === "Dépense" && t.type === "expense");
+        const matchCat    = filterCat  === "Toutes catégories" || t.category === filterCat;
         return matchSearch && matchType && matchCat;
       }),
   [transactions, searchTerm, filterType, filterCat]);
@@ -87,7 +88,8 @@ export function Transactions() {
     show("Transaction supprimée");
   }
 
-  const selectCls = "px-4 py-3 rounded-xl border border-glass-border text-foreground focus:outline-none focus:border-accent-blue/40 transition-all backdrop-blur-xl";
+  // ✅ `transition-all` → propriétés ciblées (border, background)
+  const selectCls = "px-4 py-3 rounded-xl border border-glass-border text-foreground focus:outline-none focus:border-accent-blue/40 transition-[border-color] duration-150 backdrop-blur-xl";
 
   return (
     <div className="p-8 space-y-6">
@@ -98,9 +100,10 @@ export function Transactions() {
         subtitle="Historique et gestion de toutes vos transactions"
         action={
           <motion.button
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.02, transition: { duration: 0.15 } }}
+            whileTap={{ scale: 0.98 }}
             onClick={openAdd}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors shadow-lg"
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors duration-150 shadow-lg"
           >
             <Plus className="w-5 h-5" />
             Nouvelle transaction
@@ -110,9 +113,9 @@ export function Transactions() {
 
       {/* Summary */}
       <div className="grid grid-cols-3 gap-6">
-        <StatCard label="Revenus filtrés"  value={format(filteredRevenue)}  delay={0}   highlight />
-        <StatCard label="Dépenses filtrées" value={format(filteredExpenses)} delay={0.1} alert={filteredExpenses > filteredRevenue} />
-        <StatCard label="Différence"        value={format(difference)}       delay={0.2} highlight={difference >= 0} alert={difference < 0} />
+        <StatCard label="Revenus filtrés"   value={format(filteredRevenue)}  delay={0}    highlight />
+        <StatCard label="Dépenses filtrées" value={format(filteredExpenses)} delay={0.06} alert={filteredExpenses > filteredRevenue} />
+        <StatCard label="Différence"        value={format(difference)}       delay={0.12} highlight={difference >= 0} alert={difference < 0} />
       </div>
 
       {/* Filters */}
@@ -129,7 +132,14 @@ export function Transactions() {
         </select>
       </div>
 
-      {/* Table */}
+      {/* ─── Table ─────────────────────────────────────────────────────────────
+        ✅ AnimatePresence sur le tbody — exit animation sur suppression
+        ✅ Delay capé à 0.5s max (était: 0.3 + index * 0.02, sans limite)
+           → avec 50 lignes, la dernière attendait 1.3s !
+        Note: `layout` n'est pas utilisé sur les <tr> car le moteur de layout
+        des tables CSS entre en conflit avec celui de Framer Motion.
+        On gère la fluidité via les animations enter/exit uniquement.
+      ─────────────────────────────────────────────────────────────────────── */}
       <GlassCard noPadding>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -140,48 +150,69 @@ export function Transactions() {
                 ))}
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((tx, index) => (
-                <motion.tr
-                  key={tx.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + index * 0.02 }}
-                  className="border-b border-glass-border/50 hover:bg-white/5 transition-colors"
-                >
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${tx.type === "income" ? "bg-accent-blue/10 text-accent-blue" : "bg-accent-red/10 text-accent-red"}`}>
-                      {tx.type === "income" ? "Revenu" : "Dépense"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm font-medium text-foreground">{tx.label}</td>
-                  <td className="p-4 text-sm text-muted-foreground">{tx.category}</td>
-                  <td className="p-4 text-sm text-muted-foreground">{tx.date}</td>
-                  <td className="p-4">
-                    <span className={`px-2 py-1 rounded-lg text-xs font-medium ${tx.payment_status === "completed" ? "bg-accent-blue/10 text-accent-blue" : "bg-yellow-500/10 text-yellow-500"}`}>
-                      {tx.payment_status === "completed" ? "Validé" : "En attente"}
-                    </span>
-                  </td>
-                  <td className="p-4 text-sm text-center text-muted-foreground">{tx.recurring ? "✓" : "—"}</td>
-                  <td className={`p-4 text-sm text-right font-semibold ${tx.type === "income" ? "text-accent-blue" : "text-accent-red"}`}>
-                    {tx.type === "income" ? "+" : "-"}{format(tx.amount)}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => openEdit(tx)} className="p-2 rounded-lg hover:bg-white/10 transition-colors">
-                        <Pencil className="w-4 h-4 text-muted-foreground" />
-                      </motion.button>
-                      <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => { setSelected(tx); setModal("delete"); }} className="p-2 rounded-lg hover:bg-accent-red/10 transition-colors">
-                        <Trash2 className="w-4 h-4 text-accent-red" />
-                      </motion.button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
+            <AnimatePresence initial={false}>
+              <tbody>
+                {filtered.map((tx, index) => (
+                  <motion.tr
+                    key={tx.id}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    // ✅ Exit propre sur suppression
+                    exit={{ opacity: 0, x: 16, transition: { duration: 0.18, ease: EASE } }}
+                    // ✅ Delay plafonné à 0.5s — liste infinie = pas de délai infini
+                    transition={{ delay: Math.min(0.1 + index * 0.02, 0.5), duration: 0.22, ease: EASE }}
+                    className="border-b border-glass-border/50 hover:bg-white/5 transition-[background-color] duration-150"
+                  >
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${tx.type === "income" ? "bg-accent-blue/10 text-accent-blue" : "bg-accent-red/10 text-accent-red"}`}>
+                        {tx.type === "income" ? "Revenu" : "Dépense"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-sm font-medium text-foreground">{tx.label}</td>
+                    <td className="p-4 text-sm text-muted-foreground">{tx.category}</td>
+                    <td className="p-4 text-sm text-muted-foreground">{tx.date}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 rounded-lg text-xs font-medium ${tx.payment_status === "completed" ? "bg-accent-blue/10 text-accent-blue" : "bg-yellow-500/10 text-yellow-500"}`}>
+                        {tx.payment_status === "completed" ? "Validé" : "En attente"}
+                      </span>
+                    </td>
+                    <td className="p-4 text-sm text-center text-muted-foreground">{tx.recurring ? "✓" : "—"}</td>
+                    <td className={`p-4 text-sm text-right font-semibold ${tx.type === "income" ? "text-accent-blue" : "text-accent-red"}`}>
+                      {tx.type === "income" ? "+" : "-"}{format(tx.amount)}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <motion.button
+                          whileHover={{ scale: 1.1, transition: { duration: 0.12 } }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => openEdit(tx)}
+                          className="p-2 rounded-lg hover:bg-white/10 transition-colors duration-150"
+                        >
+                          <Pencil className="w-4 h-4 text-muted-foreground" />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.1, transition: { duration: 0.12 } }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => { setSelected(tx); setModal("delete"); }}
+                          className="p-2 rounded-lg hover:bg-accent-red/10 transition-colors duration-150"
+                        >
+                          <Trash2 className="w-4 h-4 text-accent-red" />
+                        </motion.button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </AnimatePresence>
           </table>
           {filtered.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">Aucune transaction trouvée.</div>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12 text-muted-foreground"
+            >
+              Aucune transaction trouvée.
+            </motion.div>
           )}
         </div>
       </GlassCard>
@@ -234,9 +265,19 @@ export function Transactions() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-8">
-              <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">Annuler</button>
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleSave} disabled={saving || !form.label.trim() || !form.amount}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors disabled:opacity-50">
+              <button
+                onClick={() => setModal(null)}
+                className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors duration-150"
+              >
+                Annuler
+              </button>
+              <motion.button
+                whileHover={{ scale: 1.02, transition: { duration: 0.15 } }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSave}
+                disabled={saving || !form.label.trim() || !form.amount}
+                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors duration-150 disabled:opacity-50"
+              >
                 {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {modal === "add" ? "Ajouter" : "Enregistrer"}
               </motion.button>
