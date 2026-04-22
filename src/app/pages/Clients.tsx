@@ -3,7 +3,7 @@ import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
 import { Overlay, Field, DeleteConfirm, inputCls, useToast } from "../components/Modal";
-import { formatCurrencyShort } from "../../utils/currency";
+import { useCurrency } from '../contexts/CurrencyContext';
 import type { Customer } from "@shared/types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -28,6 +28,7 @@ const EMPTY_FORM = {
 
 export function Clients() {
   const { customers, metrics, addCustomer, updateCustomer, deleteCustomer } = useMetrics();
+  const { format } = useCurrency();
   const { show, ToastEl } = useToast();
   const [searchTerm,    setSearchTerm]   = useState("");
   const [statusFilter,  setStatusFilter] = useState("Tous");
@@ -132,8 +133,8 @@ export function Clients() {
         {[
           { label: "Total Clients",   value: customers.length.toString(), delay: 0 },
           { label: "Clients Actifs",  value: metrics.activeCustomers.toString(), delay: 0.1, highlight: true },
-          { label: "Revenu Total",    value: formatCurrencyShort(totalRevenue), delay: 0.2 },
-          { label: "Revenu Moyen",    value: formatCurrencyShort(avgRevenue), delay: 0.3 },
+          { label: "Revenu Total",    value: format(totalRevenue), delay: 0.2 },
+          { label: "Revenu Moyen",    value: format(avgRevenue), delay: 0.3 },
         ].map(({ label, value, delay, highlight }) => (
           <motion.div
             key={label}
@@ -208,14 +209,14 @@ export function Clients() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">MRR</p>
-                    <p className="text-lg font-semibold text-foreground">{formatCurrencyShort(client.monthly_revenue)}</p>
+                    <p className="text-lg font-semibold text-foreground">{format(client.monthly_revenue)}</p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Marge {client.gross_margin_percent.toFixed(2)}% · {formatCurrencyShort(client.monthly_revenue * client.gross_margin_percent / 100)}
+                      Marge {client.gross_margin_percent.toFixed(2)}% · {format(client.monthly_revenue * client.gross_margin_percent / 100)}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">Revenu total</p>
-                    <p className="text-lg font-semibold text-foreground">{formatCurrencyShort(client.total_revenue)}</p>
+                    <p className="text-lg font-semibold text-foreground">{format(client.total_revenue)}</p>
                     <span className={`inline-block px-3 py-1 rounded-lg text-xs font-medium mt-1 ${
                       client.status === "active"  ? "bg-accent-blue/10 text-accent-blue border border-accent-blue/30"
                     : client.status === "churned" ? "bg-accent-red/10 text-accent-red border border-accent-red/30"

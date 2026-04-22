@@ -2,7 +2,7 @@ import { motion } from "motion/react";
 import { useState, useMemo } from "react";
 import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../../utils/currency";
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const SCENARIO_PARAMS = [
   { name: "Conservateur",    description: "Croissance modérée +5% revenu/mois, burn +3%, churn 5%",  revenueChange:  5, expenseChange: 3 },
@@ -33,6 +33,7 @@ function projectCash(
 
 export function Forecast() {
   const { metrics, calculator } = useMetrics();
+  const { format } = useCurrency();
   const [selectedScenario, setSelectedScenario] = useState("Base (Réaliste)");
 
   const scenarioResults = useMemo(() =>
@@ -121,10 +122,10 @@ export function Forecast() {
 
       {/* Projection Cards — computed from real metrics */}
       <div className="grid grid-cols-4 gap-6">
-        <ProjectionCard label="Cash à 12 mois"   value={formatCurrencyShort(activeProjection.at(-1)!.cash)} />
+        <ProjectionCard label="Cash à 12 mois"   value={format(activeProjection.at(-1)!.cash)} />
         <ProjectionCard label="Runway à 12 mois" value={`${activeResult.projectedRunway} mois`} />
-        <ProjectionCard label="Revenu projeté"   value={formatCurrencyShort(activeResult.projectedRevenue)} />
-        <ProjectionCard label="Burn rate projeté" value={formatCurrencyShort(activeResult.projectedBurnRate)} />
+        <ProjectionCard label="Revenu projeté"   value={format(activeResult.projectedRevenue)} />
+        <ProjectionCard label="Burn rate projeté" value={format(activeResult.projectedBurnRate)} />
       </div>
 
       {/* Charts */}
@@ -152,7 +153,7 @@ export function Forecast() {
                 contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
                 labelStyle={{ color: "var(--popover-foreground)" }}
                 itemStyle={{ color: "var(--popover-foreground)" }}
-                formatter={(value: number) => formatCurrencyShort(value)}
+                formatter={(value: number) => format(value)}
               />
               <Legend />
               <Area type="monotone" dataKey="conservateur" name="Conservateur" stroke="#f97316" fill="transparent" strokeWidth={2} dot={false} />
@@ -180,7 +181,7 @@ export function Forecast() {
                 contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
                 labelStyle={{ color: "var(--popover-foreground)" }}
                 itemStyle={{ color: "var(--popover-foreground)" }}
-                formatter={(value: number) => formatCurrencyShort(value)}
+                formatter={(value: number) => format(value)}
               />
               <Legend />
               <Line type="monotone" dataKey="revenue"  name="Revenu"    stroke="var(--accent-red)"  strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
@@ -213,11 +214,11 @@ export function Forecast() {
             </thead>
             <tbody>
               {[
-                { label: "Cash final (M12)",     fmt: (n: string) => formatCurrencyShort(projectionData[n].at(-1)!.cash) },
+                { label: "Cash final (M12)",     fmt: (n: string) => format(projectionData[n].at(-1)!.cash) },
                 { label: "Runway projeté",       fmt: (n: string) => `${scenarioResults[n].projectedRunway} mois` },
-                { label: "Revenu projeté",       fmt: (n: string) => formatCurrencyShort(scenarioResults[n].projectedRevenue) },
-                { label: "Cashflow net projeté", fmt: (n: string) => formatCurrencyShort(scenarioResults[n].projectedNetCashflow) },
-                { label: "Burn rate projeté",    fmt: (n: string) => formatCurrencyShort(scenarioResults[n].projectedBurnRate) },
+                { label: "Revenu projeté",       fmt: (n: string) => format(scenarioResults[n].projectedRevenue) },
+                { label: "Cashflow net projeté", fmt: (n: string) => format(scenarioResults[n].projectedNetCashflow) },
+                { label: "Burn rate projeté",    fmt: (n: string) => format(scenarioResults[n].projectedBurnRate) },
               ].map(row => (
                 <tr key={row.label} className="border-b border-glass-border/50">
                   <td className="p-4 text-sm text-foreground">{row.label}</td>

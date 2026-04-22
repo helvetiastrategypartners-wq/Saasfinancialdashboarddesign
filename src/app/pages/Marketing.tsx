@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../../utils/currency";
+import { useCurrency } from '../contexts/CurrencyContext';
 import { Overlay, Field, DeleteConfirm, inputCls, useToast } from "../components/Modal";
 import type { MarketingMetrics } from "@shared/types";
 
@@ -25,6 +25,7 @@ const EMPTY_FORM = {
 
 export function Marketing() {
   const { metrics, calculator, marketingMetrics, addMarketingMetric, updateMarketingMetric, deleteMarketingMetric } = useMetrics();
+  const { format } = useCurrency();
   const { show, ToastEl } = useToast();
   const [modal,    setModal]   = useState<ModalMode>(null);
   const [selected, setSelected] = useState<MarketingMetrics | null>(null);
@@ -135,8 +136,8 @@ export function Marketing() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-6">
-        <KPICard label="CAC"           value={formatCurrencyShort(metrics.cac)}               description="Coût d'acquisition client" />
-        <KPICard label="LTV"           value={formatCurrencyShort(metrics.ltv)}               description="Valeur à vie client" />
+        <KPICard label="CAC"           value={format(metrics.cac)}               description="Coût d'acquisition client" />
+        <KPICard label="LTV"           value={format(metrics.ltv)}               description="Valeur à vie client" />
         <KPICard label="LTV / CAC"     value={`${metrics.ltvCacRatio.toFixed(1)}x`}           description="Seuil sain ≥ 3x" highlight={metrics.ltvCacRatio >= 3} />
         <KPICard label="Payback period" value={`${metrics.paybackPeriod.toFixed(1)} mois`}   description="Récupération CAC" />
       </div>
@@ -144,12 +145,12 @@ export function Marketing() {
       <div className="grid grid-cols-4 gap-6">
         <KPICard label="ROI Marketing"      value={`${(metrics.marketingROI ?? 0).toFixed(1)}%`}  description="(Revenus − Dépenses) / Dépenses" highlight={(metrics.marketingROI ?? 0) > 100} />
         <KPICard label="Taux de conversion" value={`${(metrics.conversionRate ?? 0).toFixed(1)}%`} description="Leads → clients" />
-        <KPICard label="Dépense marketing"  value={formatCurrencyShort(totalSpend)}              description={monthLabel} />
+        <KPICard label="Dépense marketing"  value={format(totalSpend)}              description={monthLabel} />
         <KPICard label="Clients acquis"     value={`${totalClients}`}                             description={monthLabel} trend={`+${totalClients}`} />
       </div>
 
       <div className="grid grid-cols-3 gap-6">
-        <KPICard label="Revenu généré" value={formatCurrencyShort(totalRevenue)}            description="Canaux marketing" />
+        <KPICard label="Revenu généré" value={format(totalRevenue)}            description="Canaux marketing" />
         <KPICard label="Total leads"   value={`${totalLeads}`}                              description={monthLabel} />
         <KPICard label="ROAS moyen"    value={`${avgRoas.toFixed(2)}x`}                     description="Revenu / Dépense" highlight={avgRoas > 2} />
       </div>
@@ -163,7 +164,7 @@ export function Marketing() {
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="canal" stroke="var(--muted-foreground)" fontSize={12} />
               <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-              <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }} formatter={(v: number) => [formatCurrencyShort(v)]} />
+              <Tooltip contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }} formatter={(v: number) => [format(v)]} />
               <Bar dataKey="spend"   name="Dépense" fill="var(--accent-red)"  radius={[8,8,0,0]} />
               <Bar dataKey="revenue" name="Revenu"  fill="var(--accent-blue)" radius={[8,8,0,0]} />
             </BarChart>
@@ -198,8 +199,8 @@ export function Marketing() {
             {Object.entries(revenueByChannel).map(([canal, rev]) => (
               <div key={canal} className="rounded-xl p-4 border border-glass-border/50" style={{ background: "var(--glass-bg)" }}>
                 <p className="text-xs text-muted-foreground mb-1">{canal}</p>
-                <p className="text-lg font-semibold text-foreground">{formatCurrencyShort(rev as number)}</p>
-                <p className="text-xs text-muted-foreground mt-1">CAC : {formatCurrencyShort((cacByChannel as Record<string, number>)[canal] ?? 0)}</p>
+                <p className="text-lg font-semibold text-foreground">{format(rev as number)}</p>
+                <p className="text-xs text-muted-foreground mt-1">CAC : {format((cacByChannel as Record<string, number>)[canal] ?? 0)}</p>
               </div>
             ))}
           </div>
@@ -238,11 +239,11 @@ export function Marketing() {
                     className="border-b border-glass-border/50 hover:bg-glass-hover transition-colors"
                   >
                     <td className="p-4 text-sm font-semibold text-foreground">{m.channel_id ?? "—"}</td>
-                    <td className="p-4 text-sm text-right text-foreground">{formatCurrencyShort(m.spend)}</td>
+                    <td className="p-4 text-sm text-right text-foreground">{format(m.spend)}</td>
                     <td className="p-4 text-sm text-right text-foreground">{m.leads ?? 0}</td>
                     <td className="p-4 text-sm text-right text-accent-blue font-semibold">{m.customers_acquired}</td>
-                    <td className="p-4 text-sm text-right text-foreground">{formatCurrencyShort(cac)}</td>
-                    <td className="p-4 text-sm text-right text-foreground">{formatCurrencyShort(m.revenue_generated)}</td>
+                    <td className="p-4 text-sm text-right text-foreground">{format(cac)}</td>
+                    <td className="p-4 text-sm text-right text-foreground">{format(m.revenue_generated)}</td>
                     <td className="p-4 text-sm text-right text-foreground">{roas.toFixed(2)}x</td>
                     <td className="p-4">
                       <div className="flex items-center justify-end gap-2">

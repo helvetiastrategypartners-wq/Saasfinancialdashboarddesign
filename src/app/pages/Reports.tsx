@@ -1,10 +1,11 @@
 import { motion } from "motion/react";
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Info } from "lucide-react";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../../utils/currency";
+import { useCurrency } from '../contexts/CurrencyContext';
 
 export function Reports() {
   const { metrics, calculator } = useMetrics();
+  const { format } = useCurrency();
 
   const revenueGrowth      = calculator.calculateRevenueGrowth();
   const expenseVariation   = calculator.calculateExpenseVariation();
@@ -49,19 +50,19 @@ export function Reports() {
         <div className="grid grid-cols-3 gap-6">
           <SummaryCard
             label="Revenu mensuel"
-            value={formatCurrencyShort(metrics.monthlyRevenue)}
+            value={format(metrics.monthlyRevenue)}
             trend={revTrendLabel}
             trendPositive={revenueGrowth >= 0}
           />
           <SummaryCard
             label="Dépenses mensuelles"
-            value={formatCurrencyShort(metrics.monthlyExpenses)}
+            value={format(metrics.monthlyExpenses)}
             trend={expTrendLabel}
             trendPositive={expenseVariation <= 0}
           />
           <SummaryCard
             label="Cashflow net"
-            value={formatCurrencyShort(metrics.netCashflow)}
+            value={format(metrics.netCashflow)}
             trend={cfPositive ? "Positif ce mois-ci" : "Négatif ce mois-ci"}
             trendPositive={cfPositive}
           />
@@ -72,10 +73,10 @@ export function Reports() {
       <section>
         <h2 className="text-2xl font-semibold text-foreground mb-4">Santé financière</h2>
         <div className="grid grid-cols-4 gap-6">
-          <MetricCard label="Marge brute"         value={formatCurrencyShort(metrics.grossMargin)}               description={`${metrics.grossMarginPercent.toFixed(2)}% des revenus`} />
-          <MetricCard label="Burn rate"            value={formatCurrencyShort(metrics.burnRate)}                  description="Moy. 3 derniers mois" />
+          <MetricCard label="Marge brute"         value={format(metrics.grossMargin)}               description={`${metrics.grossMarginPercent.toFixed(2)}% des revenus`} />
+          <MetricCard label="Burn rate"            value={format(metrics.burnRate)}                  description="Moy. 3 derniers mois" />
           <MetricCard label="Runway"               value={`${metrics.runway.toFixed(1)} mois`}                   description={metrics.cashRisk?.message} alert={metrics.runway < 6} />
-          <MetricCard label="Cash disponible"      value={formatCurrencyShort(metrics.cash)}                      description="Solde bancaire estimé" />
+          <MetricCard label="Cash disponible"      value={format(metrics.cash)}                      description="Solde bancaire estimé" />
         </div>
       </section>
 
@@ -83,7 +84,7 @@ export function Reports() {
       <section>
         <h2 className="text-2xl font-semibold text-foreground mb-4">Résumé Marketing du mois</h2>
         <div className="grid grid-cols-4 gap-6">
-          <MetricCard label="CAC"               value={formatCurrencyShort(metrics.cac)}                     description="Coût d'acquisition client" />
+          <MetricCard label="CAC"               value={format(metrics.cac)}                     description="Coût d'acquisition client" />
           <MetricCard label="Clients acquis"    value={`${metrics.newCustomersMonth}`}                       description="Nouveaux ce mois" />
           <MetricCard label="Taux de conversion" value={`${(metrics.conversionRate ?? 0).toFixed(1)}%`}      description="Leads → clients" />
           <MetricCard label="ROI Marketing"     value={`${(metrics.marketingROI ?? 0).toFixed(1)}%`}        description="(Revenus − Dépenses) / Dépenses" highlight />
@@ -94,8 +95,8 @@ export function Reports() {
       <section>
         <h2 className="text-2xl font-semibold text-foreground mb-4">Économie Unitaire</h2>
         <div className="grid grid-cols-4 gap-6">
-          <MetricCard label="ARPU"            value={formatCurrencyShort(metrics.arpu)}               description="Revenu / client actif" />
-          <MetricCard label="LTV"             value={formatCurrencyShort(metrics.ltv)}                description="Valeur à vie client" />
+          <MetricCard label="ARPU"            value={format(metrics.arpu)}               description="Revenu / client actif" />
+          <MetricCard label="LTV"             value={format(metrics.ltv)}                description="Valeur à vie client" />
           <MetricCard label="LTV / CAC"       value={`${metrics.ltvCacRatio.toFixed(1)}x`}           description="Seuil sain ≥ 3x" highlight={metrics.ltvCacRatio >= 3} />
           <MetricCard label="Payback Period"  value={`${metrics.paybackPeriod.toFixed(1)} mois`}     description="Récupération CAC" />
         </div>
@@ -107,7 +108,7 @@ export function Reports() {
         <div className="grid grid-cols-4 gap-6">
           <MetricCard label="Churn rate"         value={`${metrics.churnRate.toFixed(1)}%`}         description="Clients perdus / clients début" alert={metrics.churnRate > 5} />
           <MetricCard label="Rétention"          value={`${retentionRate.toFixed(1)}%`}             description="100% − churn rate" highlight={retentionRate >= 95} />
-          <MetricCard label="MRR"                value={formatCurrencyShort(metrics.mrr)}            description="Revenu mensuel récurrent" />
+          <MetricCard label="MRR"                value={format(metrics.mrr)}            description="Revenu mensuel récurrent" />
           <MetricCard label="Clients actifs"     value={`${metrics.activeCustomers}`}               description="Abonnements actifs" />
         </div>
       </section>
@@ -172,7 +173,7 @@ export function Reports() {
             <div className="ml-auto text-right">
               <p className="text-xs text-muted-foreground">Mars vs Février 2026</p>
               <p className="text-sm text-foreground">
-                {formatCurrencyShort(metrics.monthlyExpenses)} vs {formatCurrencyShort(metrics.monthlyExpenses / (1 + expenseVariation / 100))}
+                {format(metrics.monthlyExpenses)} vs {format(metrics.monthlyExpenses / (1 + expenseVariation / 100))}
               </p>
             </div>
           </div>

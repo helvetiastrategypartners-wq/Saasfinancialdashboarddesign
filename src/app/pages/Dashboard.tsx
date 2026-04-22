@@ -6,7 +6,9 @@ import {
   CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from "recharts";
 import { useMetrics } from "../contexts/MetricsContext";
-import { formatCurrencyShort } from "../../utils/currency";
+import { useCurrency } from "../contexts/CurrencyContext";
+import { useDateRange } from "../contexts/DateRangeContext";
+import { DateRangeBar } from "../components/DateRangeBar";
 import ExportButton from '../components/ExportButton';
 import type { Transaction } from "@shared/types";
 
@@ -93,6 +95,7 @@ const selectCls =
   "focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all";
 
 function PeriodComparator({ transactions }: { transactions: Transaction[] }) {
+  const { format } = useCurrency();
   const now = new Date();
   const cy  = now.getUTCFullYear();
   const cm  = now.getUTCMonth() + 1;
@@ -160,7 +163,7 @@ function PeriodComparator({ transactions }: { transactions: Transaction[] }) {
       row(["Indicateur", boundsA.label, boundsB.label, "Delta (A − B)", "Variation (%)"]),
       ...exportRows.map(r => row([r.label, fmtCell(r.a, r.isPercent), fmtCell(r.b, r.isPercent), deltaCell(r.a, r.b, r.isPercent), pctCell(r.a, r.b)])),
     ];
-    triggerDl(new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" }), `${exportTitle}.csv`);
+    triggerDl(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" }), `${exportTitle}.csv`);
   };
 
   const exportXLSX = async () => {
@@ -293,17 +296,15 @@ function PeriodComparator({ transactions }: { transactions: Transaction[] }) {
     const pct     = b !== 0 ? (delta / Math.abs(b) * 100) : null;
     const positive = invertColor ? delta <= 0 : delta >= 0;
 
-    const CHF_OPTS: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-
-    const fmt = (v: number) =>
+    const fmtVal = (v: number) =>
       isPercent
         ? `${v.toFixed(2)} %`
-        : `CHF ${Math.abs(v).toLocaleString("fr-CH", CHF_OPTS)}`;
+        : format(Math.abs(v));
 
     const fmtDelta = () => {
       if (isPercent) return `${delta >= 0 ? "+" : ""}${delta.toFixed(2)} pts`;
       const sign = delta >= 0 ? "+" : "-";
-      return `${sign}CHF ${Math.abs(delta).toLocaleString("fr-CH", CHF_OPTS)}`;
+      return `${sign}${format(Math.abs(delta))}`;
     };
 
     return (
@@ -311,9 +312,9 @@ function PeriodComparator({ transactions }: { transactions: Transaction[] }) {
         <span className="text-sm text-muted-foreground">{label}</span>
         <span className="text-sm font-semibold text-foreground tabular-nums text-right">
           {a < 0 && !isPercent ? <span className="text-accent-red">-</span> : null}
-          {fmt(a)}
+          {fmtVal(a)}
         </span>
-        <span className="text-sm text-muted-foreground/70 tabular-nums text-right">{fmt(b)}</span>
+        <span className="text-sm text-muted-foreground/70 tabular-nums text-right">{fmtVal(b)}</span>
         <div className="flex items-center justify-end gap-1">
           <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg whitespace-nowrap ${
             positive ? "bg-accent-blue/10 text-accent-blue" : "bg-accent-red-muted text-accent-red"
@@ -431,9 +432,10 @@ interface KPICardProps {
   trend?: string;
   trendUp?: boolean;
   highlight?: boolean;
+  compValue?: string;
 }
 
-function KPICard({ icon: Icon, label, value, sub, trend, trendUp, highlight }: KPICardProps) {
+function KPICard({ icon: Icon, label, value, sub, trend, trendUp, highlight, compValue }: KPICardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -459,6 +461,9 @@ function KPICard({ icon: Icon, label, value, sub, trend, trendUp, highlight }: K
       <p className="text-sm text-muted-foreground mb-2">{label}</p>
       <p className="text-3xl font-semibold text-foreground">{value}</p>
       {sub && <p className="text-sm text-muted-foreground mt-1">{sub}</p>}
+      {compValue && (
+        <p className="text-xs text-muted-foreground/60 mt-1.5 tabular-nums">vs {compValue}</p>
+      )}
     </motion.div>
   );
 }
@@ -466,15 +471,59 @@ function KPICard({ icon: Icon, label, value, sub, trend, trendUp, highlight }: K
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export function Dashboard() {
   const { metrics, monthlyChartData, expensesByCategory, transactions, calculator } = useMetrics();
+  const { format } = useCurrency();
+  const { dateRange, comparisonRange } = useDateRange();
   const [showComparator, setShowComparator] = useState(false);
 
-  // Trend vs previous month (M-2 → M-1)
-  const prevRevenue  = monthlyChartData.at(-3)?.revenue  ?? 0;
-  const prevExpenses = monthlyChartData.at(-3)?.expenses ?? 0;
-  const revTrend     = prevRevenue  > 0 ? ((metrics.monthlyRevenue  - prevRevenue)  / prevRevenue  * 100) : 0;
-  const expTrend     = prevExpenses > 0 ? ((metrics.monthlyExpenses - prevExpenses) / prevExpenses * 100) : 0;
-  const marginPrev   = prevRevenue > 0 ? ((prevRevenue - (monthlyChartData.at(-3)?.expenses ?? 0)) / prevRevenue * 100) : 0;
-  const marginCurr   = metrics.monthlyRevenue > 0 ? (metrics.grossMargin / metrics.monthlyRevenue * 100) : 0;
+  // Period-filtered metrics
+  const periodMetrics = useMemo(
+    () => calcPeriodMetrics(transactions, { start: dateRange.from, end: dateRange.to }),
+    [transactions, dateRange],
+  );
+  const prevMetrics = useMemo(
+    () => comparisonRange
+      ? calcPeriodMetrics(transactions, { start: comparisonRange.from, end: comparisonRange.to })
+      : null,
+    [transactions, comparisonRange],
+  );
+
+  // Trend helper
+  const mkTrend = (curr: number, prev: number | null | undefined, invertColor = false) => {
+    if (prev == null) return { trend: undefined, trendUp: undefined, compValue: undefined };
+    const pct = prev !== 0 ? ((curr - prev) / Math.abs(prev) * 100) : 0;
+    const up  = invertColor ? pct <= 0 : pct >= 0;
+    return {
+      trend:     `${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%`,
+      trendUp:   up,
+      compValue: format(prev),
+    };
+  };
+
+  // Period-based burn rate and runway
+  const periodDurationMonths = (dateRange.to.getTime() - dateRange.from.getTime()) / (30.44 * 86400000);
+  const periodBurnRate = periodDurationMonths > 0.1
+    ? periodMetrics.exp / periodDurationMonths
+    : metrics.burnRate;
+  const periodRunway = periodBurnRate > 0 ? metrics.cash / periodBurnRate : metrics.runway;
+
+  const prevBurnRate = prevMetrics && comparisonRange
+    ? (() => {
+        const d = (comparisonRange.to.getTime() - comparisonRange.from.getTime()) / (30.44 * 86400000);
+        return d > 0.1 ? prevMetrics.exp / d : null;
+      })()
+    : null;
+
+  // Human-readable range label for KPI titles
+  const rangeLabel = (() => {
+    const f = dateRange.from.toLocaleDateString("fr-CH", { month: "short", year: "2-digit" });
+    const tEnd = new Date(dateRange.to.getTime() - 86400000);
+    const t = tEnd.toLocaleDateString("fr-CH", { month: "short", year: "2-digit" });
+    return f === t ? f : `${f} – ${t}`;
+  })();
+
+  // Gross margin values for the period
+  const grossMarginAmt = periodMetrics.rev * (periodMetrics.gm / 100);
+  const prevGrossMarginAmt = prevMetrics ? prevMetrics.rev * (prevMetrics.gm / 100) : null;
 
   // Recent transactions — last 6, sorted by date descending
   const recentTx = [...transactions]
@@ -485,21 +534,70 @@ export function Dashboard() {
   // Monthly net cashflow for bar chart
   const cashTrendData = calculator.getMonthlyCashTrend(6);
 
-  // Dynamic M-1 label for header
-  const lastMonthLabel = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
-    .toLocaleDateString("fr-CH", { month: "long", year: "numeric" });
+  // ── Revenue vs Expenses zoom ───────────────────────────────────────────────
+  type Zoom = '6m' | '3m' | '1m' | '7j';
+  const [zoom, setZoom] = useState<Zoom>('6m');
+
+  const zoomedChartData = useMemo(() => {
+    const ref = new Date();
+    const sumTx = (type: 'income' | 'expense', from: string, to: string) =>
+      transactions
+        .filter(t => t.payment_status === 'completed' && t.type === type && t.date >= from && t.date < to)
+        .reduce((s, t) => s + t.amount, 0);
+
+    if (zoom === '6m') return monthlyChartData;
+
+    if (zoom === '3m') {
+      return Array.from({ length: 3 }, (_, i) => {
+        const monthsAgo = 2 - i;
+        const start = new Date(Date.UTC(ref.getFullYear(), ref.getMonth() - monthsAgo, 1));
+        const end   = new Date(Date.UTC(ref.getFullYear(), ref.getMonth() - monthsAgo + 1, 1));
+        return {
+          month:    start.toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' }),
+          revenue:  calculator.getRevenueForPeriod(start, end),
+          expenses: calculator.getExpensesForPeriod(start, end),
+        };
+      });
+    }
+
+    if (zoom === '1m') {
+      return Array.from({ length: 4 }, (_, i) => {
+        const daysBack = (3 - i) * 7;
+        const from = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysBack - 6));
+        const to   = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysBack + 1));
+        const fromStr = from.toISOString().slice(0, 10);
+        const toStr   = to.toISOString().slice(0, 10);
+        return {
+          month:    `${from.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' })}`,
+          revenue:  sumTx('income',  fromStr, toStr),
+          expenses: sumTx('expense', fromStr, toStr),
+        };
+      });
+    }
+
+    // 7j — daily
+    return Array.from({ length: 7 }, (_, i) => {
+      const daysAgo = 6 - i;
+      const d    = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysAgo));
+      const from = d.toISOString().slice(0, 10);
+      const to   = new Date(Date.UTC(ref.getFullYear(), ref.getMonth(), ref.getDate() - daysAgo + 1)).toISOString().slice(0, 10);
+      return {
+        month:    d.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' }),
+        revenue:  sumTx('income',  from, to),
+        expenses: sumTx('expense', from, to),
+      };
+    });
+  }, [zoom, monthlyChartData, transactions, calculator]);
 
   return (
     <div className="p-8 space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-5xl font-semibold text-foreground mb-2 tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground text-lg">
-            Vue d'ensemble de vos finances — {lastMonthLabel}
-          </p>
+          <p className="text-muted-foreground text-lg">Vue d'ensemble — {rangeLabel}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={() => setShowComparator(v => !v)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
@@ -515,59 +613,63 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* Date Range + Comparison + Currency bar */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <DateRangeBar />
+      </div>
+
       {/* Period Comparator (toggle) */}
       <AnimatePresence>
         {showComparator && <PeriodComparator transactions={transactions} />}
       </AnimatePresence>
 
-      {/* KPI Cards — 6 KPIs du PDF Dashboard */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-6">
         <KPICard
           icon={DollarSign}
           label="Cash disponible"
-          value={formatCurrencyShort(metrics.cash)}
+          value={format(metrics.cash)}
           highlight
         />
         <KPICard
           icon={TrendingUp}
-          label="Revenus mensuels"
-          value={formatCurrencyShort(metrics.monthlyRevenue)}
-          trend={`${revTrend >= 0 ? "+" : ""}${revTrend.toFixed(1)}%`}
-          trendUp={revTrend >= 0}
+          label={`Revenus — ${rangeLabel}`}
+          value={format(periodMetrics.rev)}
+          {...mkTrend(periodMetrics.rev, prevMetrics?.rev)}
         />
         <KPICard
           icon={TrendingDown}
-          label="Dépenses mensuelles"
-          value={formatCurrencyShort(metrics.monthlyExpenses)}
-          trend={`${expTrend >= 0 ? "+" : ""}${expTrend.toFixed(1)}%`}
-          trendUp={false}
+          label={`Dépenses — ${rangeLabel}`}
+          value={format(periodMetrics.exp)}
+          {...mkTrend(periodMetrics.exp, prevMetrics?.exp, true)}
         />
         <KPICard
           icon={BarChart2}
-          label="Marge brute"
-          value={`${marginCurr.toFixed(2)}%`}
-          sub={formatCurrencyShort(metrics.grossMargin)}
-          trend={`${(marginCurr - marginPrev).toFixed(2)}pts`}
-          trendUp={marginCurr >= marginPrev}
+          label={`Marge brute — ${rangeLabel}`}
+          value={`${periodMetrics.gm.toFixed(2)}%`}
+          sub={format(grossMarginAmt)}
+          {...mkTrend(periodMetrics.gm, prevMetrics?.gm)}
+          compValue={prevGrossMarginAmt != null ? format(prevGrossMarginAmt) : undefined}
         />
         <KPICard
           icon={Flame}
-          label="Burn rate (moy. 3 mois)"
-          value={formatCurrencyShort(metrics.burnRate)}
+          label="Burn rate (période)"
+          value={format(periodBurnRate)}
+          {...mkTrend(periodBurnRate, prevBurnRate, true)}
         />
         <KPICard
           icon={Clock}
           label="Runway estimé"
-          value={`${metrics.runway.toFixed(1)} mois`}
+          value={`${periodRunway.toFixed(1)} mois`}
           trend={metrics.cashRisk?.message}
-          trendUp={metrics.runway >= 6}
+          trendUp={periodRunway >= 6}
         />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-2 gap-6">
 
-        {/* Revenus vs Dépenses — 6 mois */}
+        {/* Revenus vs Dépenses */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -575,9 +677,24 @@ export function Dashboard() {
           className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border"
           style={{ background: "var(--glass-bg)" }}
         >
-          <h3 className="text-xl font-semibold text-foreground mb-6">Revenus vs Dépenses (6 mois)</h3>
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-foreground">Revenus vs Dépenses</h3>
+            <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-glass-border">
+              {(['7j', '1m', '3m', '6m'] as const).map(z => (
+                <button
+                  key={z}
+                  onClick={() => setZoom(z)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                    zoom === z ? 'bg-accent-blue text-white' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {z.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={monthlyChartData}>
+            <LineChart data={zoomedChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis dataKey="month" stroke="var(--muted-foreground)" />
               <YAxis stroke="var(--muted-foreground)" tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
@@ -585,7 +702,7 @@ export function Dashboard() {
                 contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
                 labelStyle={{ color: "var(--popover-foreground)" }}
                 itemStyle={{ color: "var(--popover-foreground)" }}
-                formatter={(v: number) => [formatCurrencyShort(v)]}
+                formatter={(v: number) => [format(v)]}
               />
               <Line type="monotone" dataKey="revenue"  stroke="var(--accent-red)"  strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} name="Revenus" />
               <Line type="monotone" dataKey="expenses" stroke="var(--accent-blue)" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} name="Dépenses" />
@@ -597,7 +714,7 @@ export function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Répartition des dépenses — Mars */}
+        {/* Répartition des dépenses */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -605,7 +722,7 @@ export function Dashboard() {
           className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border"
           style={{ background: "var(--glass-bg)" }}
         >
-          <h3 className="text-xl font-semibold text-foreground mb-6">Répartition des dépenses — {lastMonthLabel}</h3>
+          <h3 className="text-xl font-semibold text-foreground mb-6">Répartition des dépenses — {rangeLabel}</h3>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
               <Pie
@@ -625,7 +742,7 @@ export function Dashboard() {
                 contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
                 labelStyle={{ color: "var(--popover-foreground)" }}
                 itemStyle={{ color: "var(--popover-foreground)" }}
-                formatter={(v: number) => [formatCurrencyShort(v)]}
+                formatter={(v: number) => [format(v)]}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -650,7 +767,7 @@ export function Dashboard() {
               contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
               labelStyle={{ color: "var(--popover-foreground)" }}
               itemStyle={{ color: "var(--popover-foreground)" }}
-              formatter={(v: number) => [formatCurrencyShort(v), "Net"]}
+              formatter={(v: number) => [format(v), "Net"]}
             />
             <Bar
               dataKey="netFlow"
@@ -699,7 +816,7 @@ export function Dashboard() {
               </div>
               <div className="text-right">
                 <p className={`text-sm font-semibold ${tx.type === "income" ? "text-accent-blue" : "text-accent-red"}`}>
-                  {tx.type === "income" ? "+" : "-"}{formatCurrencyShort(tx.amount)}
+                  {tx.type === "income" ? "+" : "-"}{format(tx.amount)}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">{tx.payment_status}</p>
               </div>
@@ -711,10 +828,10 @@ export function Dashboard() {
       {/* Résumé bas de page */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: "MRR",            value: formatCurrencyShort(metrics.mrr) },
+          { label: "MRR",            value: format(metrics.mrr) },
           { label: "Clients actifs", value: `${metrics.activeCustomers}` },
           { label: "Nouveaux (mois)",value: `+${metrics.newCustomersMonth}` },
-          { label: "Cashflow net",   value: formatCurrencyShort(metrics.netCashflow) },
+          { label: `Cashflow net — ${rangeLabel}`, value: format(periodMetrics.net) },
         ].map(item => (
           <motion.div
             key={item.label}
@@ -724,7 +841,7 @@ export function Dashboard() {
             style={{ background: "var(--glass-bg)" }}
           >
             <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-            <p className={`text-xl font-semibold ${item.label === "Cashflow net" && metrics.netCashflow < 0 ? "text-accent-red" : "text-foreground"}`}>
+            <p className={`text-xl font-semibold ${item.label.startsWith("Cashflow") && periodMetrics.net < 0 ? "text-accent-red" : "text-foreground"}`}>
               {item.value}
             </p>
           </motion.div>

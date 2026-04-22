@@ -3,7 +3,7 @@ import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useMetrics } from "../contexts/MetricsContext";
 import { Overlay, Field, DeleteConfirm, inputCls, useToast } from "../components/Modal";
-import { formatCurrencyShort } from "../../utils/currency";
+import { useCurrency } from "../contexts/CurrencyContext";
 import type { Transaction } from "@shared/types";
 
 const TX_CATEGORIES = ["Subscriptions", "Consulting", "Revenue", "Marketing", "Salaries", "Direct Costs", "Operations", "Financing"];
@@ -22,6 +22,7 @@ const EMPTY_FORM = {
 
 export function Transactions() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useMetrics();
+  const { format } = useCurrency();
   const { show, ToastEl } = useToast();
 
   const [searchTerm,  setSearchTerm]  = useState("");
@@ -142,16 +143,16 @@ export function Transactions() {
       <div className="grid grid-cols-3 gap-6">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Revenus filtrés</p>
-          <p className="text-3xl font-semibold text-accent-blue">{formatCurrencyShort(filteredRevenue)}</p>
+          <p className="text-3xl font-semibold text-accent-blue">{format(filteredRevenue)}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Dépenses filtrées</p>
-          <p className="text-3xl font-semibold text-accent-red">{formatCurrencyShort(filteredExpenses)}</p>
+          <p className="text-3xl font-semibold text-accent-red">{format(filteredExpenses)}</p>
         </motion.div>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl p-6 backdrop-blur-xl border border-glass-border" style={{ background: "var(--glass-bg)" }}>
           <p className="text-sm text-muted-foreground mb-2">Différence</p>
           <p className={`text-3xl font-semibold ${difference >= 0 ? "text-accent-blue" : "text-accent-red"}`}>
-            {difference >= 0 ? "+" : "-"}{formatCurrencyShort(Math.abs(difference))}
+            {difference >= 0 ? "+" : "-"}{format(Math.abs(difference))}
           </p>
         </motion.div>
       </div>
@@ -215,7 +216,7 @@ export function Transactions() {
                     </span>
                   </td>
                   <td className={`p-4 text-sm text-right font-semibold ${tx.type === "income" ? "text-accent-blue" : "text-accent-red"}`}>
-                    {tx.type === "income" ? "+" : "-"}{formatCurrencyShort(tx.amount)}
+                    {tx.type === "income" ? "+" : "-"}{format(tx.amount)}
                   </td>
                   <td className="p-4 text-center">
                     <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
@@ -307,7 +308,7 @@ export function Transactions() {
         {modal === "delete" && selected && (
           <DeleteConfirm
             label="Supprimer la transaction ?"
-            detail={`"${selected.label}" — ${formatCurrencyShort(selected.amount)} du ${selected.date} sera définitivement supprimée.`}
+            detail={`"${selected.label}" — ${format(selected.amount)} du ${selected.date} sera définitivement supprimée.`}
             onConfirm={handleDelete}
             onCancel={() => setModal(null)}
             loading={saving}
