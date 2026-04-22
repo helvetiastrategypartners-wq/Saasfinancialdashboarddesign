@@ -8,7 +8,7 @@ import type { Transaction } from "@shared/types";
 const STATUS_MAP: Record<string, string> = {
   completed: "Payée",
   pending:   "Émise",
-  cancelled: "Annulée",
+  cancelled: "Remboursement",
 };
 
 const CATEGORIES = ["Salaries", "Marketing", "Direct Costs", "Operations", "Financing", "Consulting", "Autre"];
@@ -71,10 +71,10 @@ export function Invoices() {
     return matchSearch && matchStatus;
   });
 
-  const paidAmount    = invoices.filter(i => i.status === "Payée").reduce((s, i) => s + i.amount, 0);
-  const unpaidAmount  = invoices.filter(i => i.status === "Émise").reduce((s, i) => s + i.amount, 0);
-  const overdueList   = invoices.filter(i => i.status === "Annulée");
-  const overdueAmount = overdueList.reduce((s, i) => s + i.amount, 0);
+  const paidAmount      = invoices.filter(i => i.status === "Payée").reduce((s, i) => s + i.amount, 0);
+  const unpaidAmount    = invoices.filter(i => i.status === "Émise").reduce((s, i) => s + i.amount, 0);
+  const refundList      = invoices.filter(i => i.status === "Remboursement");
+  const refundAmount    = refundList.reduce((s, i) => s + i.amount, 0);
 
   function openAdd() {
     setForm(EMPTY_FORM);
@@ -189,19 +189,19 @@ export function Invoices() {
           <p className="text-sm text-muted-foreground mb-2">Factures en attente</p>
           <p className="text-3xl font-semibold text-yellow-500">{format(unpaidAmount)}</p>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl p-6 backdrop-blur-xl border border-accent-red/30" style={{ background: "var(--glass-bg)" }}>
-          <p className="text-sm text-muted-foreground mb-2">Annulées</p>
-          <p className="text-3xl font-semibold text-accent-red">{format(overdueAmount)}</p>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="rounded-2xl p-6 backdrop-blur-xl border border-purple-500/30" style={{ background: "var(--glass-bg)" }}>
+          <p className="text-sm text-muted-foreground mb-2">Remboursements</p>
+          <p className="text-3xl font-semibold text-purple-400">−{format(refundAmount)}</p>
         </motion.div>
       </div>
 
       {/* Alert */}
-      {overdueList.length > 0 && (
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-start gap-3 p-4 rounded-xl bg-accent-red/10 border border-accent-red/30">
-          <AlertCircle className="w-5 h-5 text-accent-red mt-0.5" />
+      {refundList.length > 0 && (
+        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-start gap-3 p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+          <AlertCircle className="w-5 h-5 text-purple-400 mt-0.5" />
           <div>
-            <p className="text-accent-red font-semibold">Transactions annulées détectées</p>
-            <p className="text-sm text-accent-red/80 mt-1">{overdueList.length} transaction(s) annulée(s) — {format(overdueAmount)}</p>
+            <p className="text-purple-400 font-semibold">Remboursements enregistrés</p>
+            <p className="text-sm text-purple-400/80 mt-1">{refundList.length} remboursement(s) — −{format(refundAmount)} crédités</p>
           </div>
         </motion.div>
       )}
@@ -226,7 +226,7 @@ export function Invoices() {
           <option value="Tous">Tous les statuts</option>
           <option value="Émise">Émise</option>
           <option value="Payée">Payée</option>
-          <option value="Annulée">Annulée</option>
+          <option value="Remboursement">Remboursement</option>
         </select>
       </div>
 
@@ -258,12 +258,14 @@ export function Invoices() {
                   <td className="p-4 text-sm text-foreground">{invoice.supplier}</td>
                   <td className="p-4 text-sm text-foreground">{invoice.category}</td>
                   <td className="p-4 text-sm text-foreground">{invoice.dueDate}</td>
-                  <td className="p-4 text-sm text-right font-semibold text-foreground">{format(invoice.amount)}</td>
+                  <td className={`p-4 text-sm text-right font-semibold ${invoice.status === "Remboursement" ? "text-purple-400" : "text-foreground"}`}>
+                    {invoice.status === "Remboursement" ? `−${format(invoice.amount)}` : format(invoice.amount)}
+                  </td>
                   <td className="p-4 text-center">
                     <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                      invoice.status === "Payée"   ? "bg-accent-blue/20 text-accent-blue"
-                    : invoice.status === "Annulée" ? "bg-accent-red/20 text-accent-red"
-                    :                                "bg-yellow-500/20 text-yellow-500"
+                      invoice.status === "Payée"         ? "bg-accent-blue/20 text-accent-blue"
+                    : invoice.status === "Remboursement" ? "bg-purple-500/20 text-purple-400"
+                    :                                      "bg-yellow-500/20 text-yellow-500"
                     }`}>
                       {invoice.status}
                     </span>
@@ -338,7 +340,7 @@ export function Invoices() {
                   <select value={form.payment_status} onChange={e => f("payment_status", e.target.value as Transaction["payment_status"])} className={inputCls}>
                     <option value="pending">Émise</option>
                     <option value="completed">Payée</option>
-                    <option value="cancelled">Annulée</option>
+                    <option value="cancelled">Remboursement</option>
                   </select>
                 </Field>
               </div>

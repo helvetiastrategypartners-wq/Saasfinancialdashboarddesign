@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, DollarSign, BarChart2, Flame, Clock, GitCompa
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+  ComposedChart, ReferenceLine,
 } from "recharts";
 import { useMetrics } from "../contexts/MetricsContext";
 import { useCurrency } from "../contexts/CurrencyContext";
@@ -423,6 +424,47 @@ function PeriodComparator({ transactions }: { transactions: Transaction[] }) {
   );
 }
 
+// ── Candlestick shape ─────────────────────────────────────────────────────────
+// Bar is stacked: transparent spacer (0→low+offset) + range bar (low→high).
+// The shape receives the range bar's pixel box and draws the full candle inside it.
+function CandlestickShape(props: {
+  x?: number; y?: number; width?: number; height?: number;
+  payload?: { open: number; close: number; high: number; low: number };
+}) {
+  const { x = 0, y = 0, width = 0, height = 0, payload } = props;
+  if (!payload || height <= 0 || width <= 0) return null;
+
+  const { open, close, high, low } = payload;
+  const range = high - low;
+  if (range <= 0) return null;
+
+  const cx   = x + width / 2;
+  const hw   = Math.max(3, width * 0.55);
+  const yTop = y;
+  const yBot = y + height;
+  const toY  = (v: number) => yBot - ((v - low) / range) * height;
+
+  const yOpen  = toY(open);
+  const yClose = toY(close);
+  const bodyTop = Math.min(yOpen, yClose);
+  const bodyH   = Math.max(1, Math.abs(yClose - yOpen));
+  const isUp    = close >= open;
+  const color   = isUp ? 'var(--accent-blue)' : 'var(--accent-red)';
+
+  return (
+    <g>
+      {/* Wick */}
+      <line x1={cx} y1={yTop} x2={cx} y2={yBot} stroke={color} strokeWidth={1.5} />
+      {/* Body */}
+      <rect
+        x={cx - hw / 2} y={bodyTop} width={hw} height={bodyH}
+        fill={color} fillOpacity={isUp ? 0.25 : 0.75}
+        stroke={color} strokeWidth={1.5} rx={2}
+      />
+    </g>
+  );
+}
+
 // ── KPI Card ──────────────────────────────────────────────────────────────────
 interface KPICardProps {
   icon: LucideIcon;
@@ -474,6 +516,7 @@ export function Dashboard() {
   const { format } = useCurrency();
   const { dateRange, comparisonRange } = useDateRange();
   const [showComparator, setShowComparator] = useState(false);
+  const [chartMode, setChartMode]           = useState<'line' | 'candle'>('line');
 
   // Period-filtered metrics
   const periodMetrics = useMemo(
@@ -614,6 +657,28 @@ export function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [transactions, dateRange]);
 
+  // ── Candlestick data — open=prev net, close=curr net, high=revenue, low=−exp ─
+  const candleData = useMemo(() => {
+    let prevClose = 0;
+    return dateRangeChartData.map(d => {
+      const net   = d.revenue - d.expenses;
+      const open  = prevClose;
+      const close = net;
+      const high  = Math.max(d.revenue, open, close);
+      const low   = Math.min(-d.expenses, open, close, 0);
+      prevClose   = net;
+      return { month: d.month, open, close, high, low, revenue: d.revenue, expenses: d.expenses };
+    });
+  }, [dateRangeChartData]);
+
+  // Offset so all candle values are ≥ 0 (required for stacked Bar baseline)
+  const candleOffset = Math.abs(Math.min(0, ...candleData.map(d => d.low)));
+  const candleProcessed = candleData.map(d => ({
+    ...d,
+    spacer: d.low + candleOffset,
+    range:  d.high - d.low,
+  }));
+
   return (
     <div className="p-8 space-y-8">
       {/* Header */}
@@ -704,25 +769,83 @@ export function Dashboard() {
         >
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-foreground">Revenus vs Dépenses — {rangeLabel}</h3>
+            <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-glass-border">
+              {(['line', 'candle'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setChartMode(m)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                    chartMode === m ? 'bg-accent-blue text-white' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {m === 'line' ? '📈 Lignes' : '🕯 Bougies'}
+                </button>
+              ))}
+            </div>
           </div>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dateRangeChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="month" stroke="var(--muted-foreground)" />
-              <YAxis stroke="var(--muted-foreground)" tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
-              <Tooltip
-                contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
-                labelStyle={{ color: "var(--popover-foreground)" }}
-                itemStyle={{ color: "var(--popover-foreground)" }}
-                formatter={(v: number) => [format(v)]}
-              />
-              <Line type="monotone" dataKey="revenue"  stroke="var(--accent-red)"  strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} name="Revenus" />
-              <Line type="monotone" dataKey="expenses" stroke="var(--accent-blue)" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} name="Dépenses" />
-            </LineChart>
-          </ResponsiveContainer>
+
+          {chartMode === 'line' ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={dateRangeChartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="month" stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} />
+                <YAxis stroke="var(--muted-foreground)" tickFormatter={v => `${(v/1000).toFixed(0)}k`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
+                  labelStyle={{ color: "var(--popover-foreground)" }}
+                  itemStyle={{ color: "var(--popover-foreground)" }}
+                  formatter={(v: number) => [format(v)]}
+                />
+                <Line type="monotone" dataKey="revenue"  stroke="var(--accent-red)"  strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} name="Revenus" />
+                <Line type="monotone" dataKey="expenses" stroke="var(--accent-blue)" strokeWidth={2.5} dot={false} activeDot={{ r: 6 }} name="Dépenses" />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={candleProcessed} barCategoryGap="20%">
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="month" stroke="var(--muted-foreground)" tick={{ fontSize: 11 }} />
+                <YAxis
+                  stroke="var(--muted-foreground)"
+                  tickFormatter={v => `${((v - candleOffset) / 1000).toFixed(0)}k`}
+                />
+                <ReferenceLine y={candleOffset} stroke="var(--muted-foreground)" strokeDasharray="4 4" strokeWidth={1} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "var(--popover)", border: "1px solid var(--border)", borderRadius: "12px" }}
+                  labelStyle={{ color: "var(--popover-foreground)" }}
+                  itemStyle={{ color: "var(--popover-foreground)" }}
+                  formatter={(_v: number, name: string, item: { payload: typeof candleProcessed[0] }) => {
+                    const p = item.payload;
+                    if (name === 'spacer') return [null, null];
+                    return [
+                      <span key="tip" style={{ color: "var(--popover-foreground)" }}>
+                        Revenus: {format(p.revenue)} · Dépenses: {format(p.expenses)}<br />
+                        Open: {format(p.open)} · Close: {format(p.close)}
+                      </span>,
+                      '',
+                    ];
+                  }}
+                />
+                {/* Invisible spacer — positions candle body correctly */}
+                <Bar dataKey="spacer" stackId="c" fill="transparent" stroke="none" legendType="none" />
+                {/* Visible candle range bar with custom shape */}
+                <Bar dataKey="range" stackId="c" shape={<CandlestickShape />} legendType="none" />
+              </ComposedChart>
+            </ResponsiveContainer>
+          )}
+
           <div className="flex items-center justify-center gap-6 mt-2">
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent-red" /><span className="text-sm text-muted-foreground">Revenus</span></div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent-blue" /><span className="text-sm text-muted-foreground">Dépenses</span></div>
+            {chartMode === 'line' ? (
+              <>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent-red" /><span className="text-sm text-muted-foreground">Revenus</span></div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent-blue" /><span className="text-sm text-muted-foreground">Dépenses</span></div>
+              </>
+            ) : (
+              <>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent-blue" /><span className="text-sm text-muted-foreground">Haussier (net +)</span></div>
+                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-accent-red" /><span className="text-sm text-muted-foreground">Baissier (net −)</span></div>
+              </>
+            )}
           </div>
         </motion.div>
 
