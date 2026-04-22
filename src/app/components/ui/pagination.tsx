@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X, CheckCircle } from "lucide-react";
 import { useState, useEffect, type ReactNode } from "react";
-import { backdropVariants, panelVariants, toastVariants } from "../lib/animations";
+import { backdropVariants, panelVariants, toastVariants } from "../../lib/animations";
 
 // ✅ `transition-all` → propriétés ciblées uniquement
 // Évite que le browser recalcule TOUTES les transitions à chaque frappe
