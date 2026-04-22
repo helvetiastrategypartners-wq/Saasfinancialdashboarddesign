@@ -652,6 +652,61 @@ export class MetricsCalculator {
         return this.calculateTotalDebtPayments();
     }
 
+    // ── ADVANCED ANALYTICS (COHORT REVENUE) ─────────────────────────────────
+
+    /**
+     * Agrège les revenus des transactions par mois d'acquisition du client.
+     * Retourne une matrice cohorte × mois pour visualiser la rétention revenus.
+     */
+    public getCohortRevenueAnalysis(): Array<{
+        cohort: string;
+        label:  string;
+        size:   number;
+        months: Array<{ label: string; revenue: number; avgPerCustomer: number }>;
+    }> {
+        const cohortMap = new Map<string, Customer[]>();
+        for (const c of this.customers) {
+            const key = c.acquisition_date.slice(0, 7);
+            let arr   = cohortMap.get(key);
+            if (!arr) { arr = []; cohortMap.set(key, arr); }
+            arr.push(c);
+        }
+
+        const ref    = this._refDate;
+        const result = [];
+
+        for (const [cohortKey, cohortCustomers] of cohortMap) {
+            const [year, month] = cohortKey.split('-').map(Number);
+            const monthsElapsed = (ref.getFullYear() - year) * 12 + (ref.getMonth() - (month - 1));
+            const maxM          = Math.min(monthsElapsed + 1, 12);
+            const customerIds   = new Set(cohortCustomers.map(c => c.id));
+
+            const months = [];
+            for (let m = 0; m < maxM; m++) {
+                const startKey = new Date(Date.UTC(year, (month - 1) + m,     1)).toISOString().slice(0, 7);
+                const endKey   = new Date(Date.UTC(year, (month - 1) + m + 1, 1)).toISOString().slice(0, 7);
+                const txs      = filterTxPure(this._txByMonthKey, startKey, endKey, 'income');
+                const revenue  = txs
+                    .filter(t => t.linked_customer && customerIds.has(t.linked_customer))
+                    .reduce((s, t) => s + t.amount, 0);
+                months.push({
+                    label:          `M+${m}`,
+                    revenue,
+                    avgPerCustomer: cohortCustomers.length > 0 ? Math.round(revenue / cohortCustomers.length) : 0,
+                });
+            }
+
+            result.push({
+                cohort: cohortKey,
+                label:  new Date(cohortKey + '-01').toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' }),
+                size:   cohortCustomers.length,
+                months,
+            });
+        }
+
+        return result.sort((a, b) => a.cohort.localeCompare(b.cohort));
+    }
+
     // ── INTELLIGENCE LAYER ────────────────────────────────────────────────────
 
 

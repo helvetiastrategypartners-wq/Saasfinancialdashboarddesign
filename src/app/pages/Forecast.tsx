@@ -14,6 +14,25 @@ const SCENARIO_PARAMS = [
   { name: "Ambitieux",       description: "Croissance +25% revenu/mois, burn +8%, churn 2%",         revenueChange: 25, expenseChange: 8 },
 ];
 
+const WHAT_IF_PRESETS = [
+  { id: "ads",   label: "Double le budget Ads",   revenueChange: 15,  expenseChange: 20,  hiringCost: 0     },
+  { id: "churn", label: "Réduit le churn de 50%", revenueChange: 8,   expenseChange: 0,   hiringCost: 0     },
+  { id: "hire",  label: "Embauche 2 devs",         revenueChange: 5,   expenseChange: 0,   hiringCost: 12000 },
+  { id: "cut",   label: "Coupe 20% des dépenses",  revenueChange: 0,   expenseChange: -20, hiringCost: 0     },
+  { id: "boost", label: "Revenue +30%",             revenueChange: 30,  expenseChange: 8,   hiringCost: 0     },
+] as const;
+
+function DeltaBadge({ base, sim }: { base: number; sim: number }) {
+  const diff = sim - base;
+  const pct  = base !== 0 ? ((diff / Math.abs(base)) * 100).toFixed(1) : null;
+  const pos  = diff >= 0;
+  return (
+    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pos ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+      {pos ? "+" : ""}{pct !== null ? `${pct}%` : "—"}
+    </span>
+  );
+}
+
 function projectCash(
   initialCash: number, monthlyRevenue: number, burnRate: number,
   revenueGrowth: number, expenseGrowth: number, months = 12,
@@ -33,6 +52,8 @@ export function Forecast() {
   const { metrics, calculator } = useMetrics();
   const { format } = useCurrency();
   const [selectedScenario, setSelectedScenario] = useState("Base (Réaliste)");
+  const [simParams, setSimParams]   = useState({ revenueChange: 0, expenseChange: 0, hiringCost: 0 });
+  const [activePreset, setActivePreset] = useState<string | null>(null);
 
   const scenarioResults = useMemo(() =>
     Object.fromEntries(
@@ -58,6 +79,26 @@ export function Forecast() {
       ambitieux:    projectionData["Ambitieux"][i].cash,
     })),
   [projectionData]);
+
+  const simResult = useMemo(() =>
+    calculator.simulateScenario(simParams),
+  [calculator, simParams]);
+
+  const simProjection = useMemo(() =>
+    projectCash(metrics.cash, metrics.monthlyRevenue, metrics.burnRate, simParams.revenueChange, simParams.expenseChange),
+  [metrics, simParams]);
+
+  const baseProjection = useMemo(() =>
+    projectCash(metrics.cash, metrics.monthlyRevenue, metrics.burnRate, 0, 0),
+  [metrics]);
+
+  const simComparisonData = useMemo(() =>
+    Array.from({ length: 12 }, (_, i) => ({
+      month:  `M${i + 1}`,
+      actuel: baseProjection[i].cash,
+      simulé: simProjection[i].cash,
+    })),
+  [baseProjection, simProjection]);
 
   return (
     <div className="p-8 space-y-8">
@@ -142,6 +183,141 @@ export function Forecast() {
             <Line type="monotone" dataKey="burnRate" name="Burn Rate" stroke="var(--accent-blue)" strokeWidth={3} dot={false} activeDot={{ r: 5 }} />
           </LineChart>
         </ResponsiveContainer>
+      </GlassCard>
+
+      {/* What-If Simulator */}
+      <GlassCard delay={0.2}>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-semibold text-foreground">Simulateur de scénarios</h3>
+            <p className="text-sm text-muted-foreground mt-1">Modifiez les paramètres pour voir l'impact en temps réel</p>
+          </div>
+          <button
+            onClick={() => { setSimParams({ revenueChange: 0, expenseChange: 0, hiringCost: 0 }); setActivePreset(null); }}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg border border-glass-border hover:bg-secondary/50"
+          >
+            Réinitialiser
+          </button>
+        </div>
+
+        {/* Quick presets */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {WHAT_IF_PRESETS.map(p => (
+            <button
+              key={p.id}
+              onClick={() => {
+                const params = { revenueChange: p.revenueChange, expenseChange: p.expenseChange, hiringCost: p.hiringCost };
+                setSimParams(params);
+                setActivePreset(activePreset === p.id ? null : p.id);
+              }}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                activePreset === p.id
+                  ? "bg-blue-500/20 border-blue-500/50 text-blue-400"
+                  : "bg-secondary/50 border-glass-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Sliders */}
+        <div className="grid grid-cols-3 gap-8 mb-8">
+          {([
+            { key: "revenueChange" as const, label: "Variation revenus",    unit: "%", min: -50,  max: 100,  step: 1,   color: "text-emerald-400" },
+            { key: "expenseChange" as const, label: "Variation dépenses",   unit: "%", min: -50,  max: 100,  step: 1,   color: "text-red-400"     },
+            { key: "hiringCost"   as const,  label: "Coût embauche / mois", unit: "€", min: 0,    max: 50000, step: 500, color: "text-blue-400"   },
+          ] as const).map(({ key, label, unit, min, max, step, color }) => {
+            const val = simParams[key];
+            const pct = ((val - min) / (max - min)) * 100;
+            return (
+              <div key={key}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-muted-foreground">{label}</span>
+                  <span className={`text-sm font-semibold tabular-nums ${color}`}>
+                    {key === "hiringCost"
+                      ? format(val)
+                      : `${val > 0 ? "+" : ""}${val}${unit}`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={min}
+                  max={max}
+                  step={step}
+                  value={val}
+                  onChange={e => {
+                    setActivePreset(null);
+                    setSimParams(prev => ({ ...prev, [key]: Number(e.target.value) }));
+                  }}
+                  className="w-full h-2 rounded-full appearance-none cursor-pointer accent-blue-500"
+                  style={{ background: `linear-gradient(to right, var(--accent-blue) 0%, var(--accent-blue) ${pct}%, var(--border) ${pct}%, var(--border) 100%)` }}
+                />
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>{key === "hiringCost" ? "0€" : `${min}%`}</span>
+                  <span>{key === "hiringCost" ? `${format(max)}` : `+${max}%`}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Before / After comparison */}
+        <div className="grid grid-cols-4 gap-4 mb-8">
+          {[
+            { label: "Revenu mensuel", base: metrics.monthlyRevenue, sim: simResult.projectedRevenue,    isMonths: false },
+            { label: "Burn rate",      base: metrics.burnRate,       sim: simResult.projectedBurnRate,   isMonths: false },
+            { label: "Cashflow net",   base: metrics.netCashflow,    sim: simResult.projectedNetCashflow, isMonths: false },
+            { label: "Runway",         base: metrics.runway,         sim: simResult.projectedRunway,     isMonths: true  },
+          ].map(({ label, base, sim, isMonths }) => (
+            <div key={label} className="rounded-xl p-4 border border-glass-border bg-secondary/30">
+              <p className="text-xs font-medium text-muted-foreground mb-3">{label}</p>
+              <div className="flex items-end justify-between gap-1 mb-2">
+                <div>
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Actuel</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {isMonths ? `${Number(base).toFixed(1)} m` : format(base)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground mb-0.5">Projeté</p>
+                  <p className={`text-sm font-semibold ${sim > base ? "text-emerald-400" : sim < base ? "text-red-400" : "text-foreground"}`}>
+                    {isMonths ? `${Number(sim).toFixed(1)} m` : format(sim)}
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <DeltaBadge base={base} sim={sim} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Comparison chart */}
+        <div>
+          <p className="text-sm font-medium text-foreground mb-4">Projection de trésorerie — Base vs Scénario simulé</p>
+          <ResponsiveContainer width="100%" height={260}>
+            <AreaChart data={simComparisonData}>
+              <defs>
+                <linearGradient id="grad-sim" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#10b981" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="grad-base-sim" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="var(--accent-blue)" stopOpacity={0.15} />
+                  <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={12} />
+              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+              <Tooltip {...CHART_TOOLTIP} formatter={(value: number) => format(value)} />
+              <Legend />
+              <Area type="monotone" dataKey="actuel" name="Base (actuel)"    stroke="var(--accent-blue)" fill="url(#grad-base-sim)" strokeWidth={2}   dot={false} strokeDasharray="5 3" />
+              <Area type="monotone" dataKey="simulé" name="Scénario simulé" stroke="#10b981"              fill="url(#grad-sim)"      strokeWidth={2.5} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
       </GlassCard>
 
       {/* Summary table */}
