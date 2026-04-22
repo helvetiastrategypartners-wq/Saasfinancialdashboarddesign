@@ -8,7 +8,7 @@ import { GlassCard }   from "../components/ui/GlassCard";
 import { PageHeader }  from "../components/ui/PageHeader";
 import { StatCard }    from "../components/ui/StatCard";
 import { SearchInput } from "../components/ui/SearchInput";
-import { EASE }        from "../lib/animations";
+import { EASE }        from "../lib/animation";
 import type { Transaction } from "@shared/types";
 
 const TX_CATEGORIES = ["Subscriptions","Consulting","Revenue","Marketing","Salaries","Direct Costs","Operations","Financing"];

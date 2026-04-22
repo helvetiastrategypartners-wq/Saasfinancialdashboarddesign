@@ -1,3 +1,4 @@
+import React, { Suspense } from 'react';
 import { RouterProvider } from 'react-router';
 import { router } from './routes';
 import { ThemeProvider } from './contexts/ThemeContext';
@@ -11,7 +12,9 @@ export default function App() {
       <CurrencyProvider>
         <DateRangeProvider>
           <MetricsProvider>
-            <RouterProvider router={router} />
+            <Suspense fallback={<div className="p-8 text-center">Chargement de la page...</div>}>
+              <RouterProvider router={router} />
+            </Suspense>
           </MetricsProvider>
         </DateRangeProvider>
       </CurrencyProvider>

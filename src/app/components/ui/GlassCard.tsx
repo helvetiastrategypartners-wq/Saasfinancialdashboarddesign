@@ -1,5 +1,5 @@
 import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
-import { EASE } from "../../lib/animations";
+import { EASE } from "../../lib/animation";
 
 interface GlassCardProps extends Omit<HTMLMotionProps<"div">, "style"> {
   delay?: number;
