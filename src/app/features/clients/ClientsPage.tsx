@@ -5,7 +5,7 @@ import { useToast, Overlay, Field, DeleteConfirm, inputCls } from "../../compone
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
 import { SearchInput } from "../../components/ui/SearchInput";
-import { ClientsList } from "./components/ClientsList";
+import { ClientsList } from "./components";
 import {
   buildCustomerPayload,
   CLIENT_STATUS_LABEL,
@@ -13,7 +13,7 @@ import {
   toClientForm,
   useClientsData,
   type ClientFormState,
-} from "./hooks/useClientsData";
+} from "./hooks";
 import type { Customer } from "@shared/types";
 
 type ModalMode = "add" | "edit" | "delete" | null;

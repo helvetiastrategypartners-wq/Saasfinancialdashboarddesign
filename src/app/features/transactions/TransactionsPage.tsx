@@ -5,7 +5,7 @@ import { DeleteConfirm, Field, Overlay, inputCls, useToast } from "../../compone
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
 import { SearchInput } from "../../components/ui/SearchInput";
-import { TransactionsTable } from "./components/TransactionsTable";
+import { TransactionsTable } from "./components";
 import {
   buildTransactionPayload,
   EMPTY_TRANSACTION_FORM,
@@ -13,7 +13,7 @@ import {
   TRANSACTION_CATEGORIES,
   useTransactionsData,
   type TransactionFormState,
-} from "./hooks/useTransactionsData";
+} from "./hooks";
 import type { Transaction } from "@shared/types";
 
 type ModalMode = "add" | "edit" | "delete" | null;

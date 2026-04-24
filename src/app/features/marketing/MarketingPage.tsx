@@ -1,23 +1,37 @@
 import { AnimatePresence, motion } from "motion/react";
-import { Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Loader2, Plus } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { DeleteConfirm, Field, Overlay, inputCls, useToast } from "../../components/Modal";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
 import { GlassCard } from "../../components/ui/GlassCard";
-import { CHART_TOOLTIP } from "../../lib/chartConfig";
-import { MarketingCampaignTable } from "./components/MarketingCampaignTable";
+import { MarketingCampaignTable } from "./components";
 import {
   buildMarketingPayload,
   EMPTY_MARKETING_FORM,
   toMarketingForm,
   useMarketingData,
   type MarketingFormState,
-} from "./hooks/useMarketingData";
+} from "./hooks";
 import type { MarketingMetrics } from "@shared/types";
 
+const MarketingChartsSection = lazy(() =>
+  import("./components/MarketingChartsSection").then((module) => ({ default: module.MarketingChartsSection })),
+);
+
 type ModalMode = "add" | "edit" | "delete" | null;
+
+function ChartSectionFallback() {
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-6">
+        <div className="rounded-2xl border border-glass-border animate-pulse" style={{ background: "var(--glass-bg)", minHeight: 300 }} />
+        <div className="rounded-2xl border border-glass-border animate-pulse" style={{ background: "var(--glass-bg)", minHeight: 300 }} />
+      </div>
+      <div className="rounded-2xl border border-glass-border animate-pulse" style={{ background: "var(--glass-bg)", minHeight: 280 }} />
+    </div>
+  );
+}
 
 export function Marketing() {
   const { show, ToastEl } = useToast();
@@ -121,60 +135,15 @@ export function Marketing() {
         <StatCard label="ROAS moyen" value={`${avgRoas.toFixed(2)}x`} description="Revenu / Depense" highlight={avgRoas > 2} />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        <GlassCard>
-          <h3 className="text-xl font-semibold text-foreground mb-6">Depense vs revenu par canal</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={spendVsRevenue}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis dataKey="canal" stroke="var(--muted-foreground)" fontSize={12} />
-              <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-              <Tooltip {...CHART_TOOLTIP} formatter={(value: number) => [format(value)]} />
-              <Bar dataKey="spend" name="Depense" fill="var(--accent-red)" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="revenue" name="Revenu" fill="var(--accent-blue)" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </GlassCard>
-
-        <GlassCard delay={0.1}>
-          <h3 className="text-xl font-semibold text-foreground mb-6">ROI % par canal</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={roiData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis type="number" stroke="var(--muted-foreground)" fontSize={12} unit="%" />
-              <YAxis dataKey="canal" type="category" stroke="var(--muted-foreground)" fontSize={12} width={90} />
-              <Tooltip {...CHART_TOOLTIP} formatter={(value: number) => [`${value}%`, "ROI"]} />
-              <Bar dataKey="roi" name="ROI" radius={[0, 8, 8, 0]}>
-                {roiData.map((_, index) => (
-                  <Cell key={`roi-${index}`} fill="var(--accent-blue)" />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </GlassCard>
-      </div>
-
-      <GlassCard delay={0.2}>
-        <h3 className="text-xl font-semibold text-foreground mb-2">LTV vs CAC par canal</h3>
-        <p className="text-sm text-muted-foreground mb-6">Seuil sain : LTV au moins 3x CAC</p>
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={ltvCacData} barGap={4}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-            <XAxis dataKey="canal" stroke="var(--muted-foreground)" fontSize={12} />
-            <YAxis stroke="var(--muted-foreground)" fontSize={12} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
-            <Tooltip {...CHART_TOOLTIP} formatter={(value: number) => [format(value)]} />
-            <Legend />
-            <Bar dataKey="ltv" name="LTV" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="cac" name="CAC" fill="var(--accent-red)" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-        <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-          <span className={`font-semibold ${metrics.ltvCacRatio >= 3 ? "text-blue-400" : "text-red-400"}`}>
-            Ratio global : {metrics.ltvCacRatio.toFixed(1)}
-          </span>
-          <span>- {metrics.ltvCacRatio >= 3 ? "Sain" : metrics.ltvCacRatio >= 1.5 ? "A surveiller" : "Critique"}</span>
-        </div>
-      </GlassCard>
+      <Suspense fallback={<ChartSectionFallback />}>
+        <MarketingChartsSection
+          avgRatio={metrics.ltvCacRatio}
+          formatCurrency={format}
+          ltvCacData={ltvCacData}
+          roiData={roiData}
+          spendVsRevenue={spendVsRevenue}
+        />
+      </Suspense>
 
       <GlassCard delay={0.25}>
         <h3 className="text-xl font-semibold text-foreground mb-2">Entonnoir de conversion</h3>

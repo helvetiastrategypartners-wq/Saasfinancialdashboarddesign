@@ -5,7 +5,7 @@ import { Field, Overlay, inputCls, useToast } from "../../components/Modal";
 import { GlassCard } from "../../components/ui/GlassCard";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { SearchInput } from "../../components/ui/SearchInput";
-import { InvoicesTable } from "./components/InvoicesTable";
+import { InvoicesTable } from "./components";
 import {
   AI_STEPS,
   buildInvoicePayload,
@@ -15,7 +15,7 @@ import {
   useInvoicesData,
   type InvoiceFormState,
   type InvoiceRow,
-} from "./hooks/useInvoicesData";
+} from "./hooks";
 import type { Transaction } from "@shared/types";
 
 type ModalMode = "add" | "edit" | "delete" | "ai" | null;

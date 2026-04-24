@@ -54,10 +54,6 @@ export default defineConfig(({ mode }) => {
               return 'supabase'
             }
 
-            if (id.includes('recharts')) {
-              return 'charts'
-            }
-
             return undefined
           },
         },

@@ -9,7 +9,7 @@ import {
   ProfileSettingsPanel,
   SecuritySettingsPanel,
   SETTINGS_TABS,
-} from "./components/SettingsPanels";
+} from "./components";
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
