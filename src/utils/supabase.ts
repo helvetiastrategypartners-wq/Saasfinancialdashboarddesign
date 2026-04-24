@@ -1,7 +1,16 @@
-// src/utils/supabase.ts
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
+const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim()
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export function isSupabaseConfigured(): boolean {
+  return Boolean(supabaseUrl && supabaseKey)
+}
+
+export function getSupabaseConfigError(): string {
+  return 'Supabase n’est pas configuré. Les données de démonstration restent actives tant que `VITE_SUPABASE_URL` et `VITE_SUPABASE_PUBLISHABLE_KEY` ne sont pas définies.'
+}
+
+export const supabase = isSupabaseConfigured()
+  ? createClient(supabaseUrl as string, supabaseKey as string)
+  : null

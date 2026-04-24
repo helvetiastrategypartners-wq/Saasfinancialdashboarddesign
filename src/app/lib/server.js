@@ -1,8 +1,7 @@
-// Express server — export endpoint (optionnel, l'export se fait côté client)
+// Express server â€” export endpoint (optionnel, l'export se fait cÃ´tÃ© client)
 // Pour lancer : node src/app/lib/server.js (port 3001)
 const express = require('express');
 const pdfkit = require('pdfkit');
-const XLSX = require('xlsx');
 const app = express();
 
 app.use(express.json({ limit: '5mb' }));
@@ -27,14 +26,8 @@ app.post('/api/export', async (req, res) => {
         ext = 'csv';
         break;
       }
-      case 'xlsx': {
-        buffer = buildXLSX({ title, metrics, monthlyChartData, expensesByCategory, transactions });
-        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-        ext = 'xlsx';
-        break;
-      }
       default:
-        return res.status(400).json({ error: 'Format invalide. Utiliser pdf, csv ou xlsx.' });
+        return res.status(400).json({ error: 'Format invalide. Utiliser pdf ou csv.' });
     }
 
     res.setHeader('Content-Disposition', `attachment; filename="${title}.${ext}"`);
@@ -48,56 +41,28 @@ app.post('/api/export', async (req, res) => {
 
 function buildCSVRows({ metrics, monthlyChartData, expensesByCategory, transactions }) {
   return [
-    ['Métrique', 'Valeur'],
+    ['MÃ©trique', 'Valeur'],
     ['Cash disponible (CHF)', metrics.cash],
     ['Revenus mensuels (CHF)', metrics.monthlyRevenue],
-    ['Dépenses mensuelles (CHF)', metrics.monthlyExpenses],
+    ['DÃ©penses mensuelles (CHF)', metrics.monthlyExpenses],
     ['Cashflow net (CHF)', metrics.netCashflow],
     ['Burn rate (CHF)', metrics.burnRate],
     ['Runway (mois)', metrics.runway],
     ['MRR (CHF)', metrics.mrr],
     ['Clients actifs', metrics.activeCustomers],
     [],
-    ['--- Évolution mensuelle ---'],
-    ['Mois', 'Revenus', 'Dépenses'],
+    ['--- Ã‰volution mensuelle ---'],
+    ['Mois', 'Revenus', 'DÃ©penses'],
     ...monthlyChartData.map(m => [m.month, m.revenue, m.expenses]),
     [],
-    ['--- Dépenses par catégorie ---'],
-    ['Catégorie', 'Montant'],
+    ['--- DÃ©penses par catÃ©gorie ---'],
+    ['CatÃ©gorie', 'Montant'],
     ...expensesByCategory.map(e => [e.name, e.value]),
     [],
     ['--- Transactions ---'],
-    ['Date', 'Libellé', 'Catégorie', 'Type', 'Montant', 'Statut'],
+    ['Date', 'LibellÃ©', 'CatÃ©gorie', 'Type', 'Montant', 'Statut'],
     ...transactions.map(t => [t.date, t.label, t.category, t.type, t.amount, t.payment_status]),
   ];
-}
-
-function buildXLSX({ title, metrics, monthlyChartData, expensesByCategory, transactions }) {
-  const wb = XLSX.utils.book_new();
-
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-    ['Métrique', 'Valeur'],
-    ['Cash disponible (CHF)', metrics.cash],
-    ['Revenus mensuels (CHF)', metrics.monthlyRevenue],
-    ['Dépenses mensuelles (CHF)', metrics.monthlyExpenses],
-    ['Cashflow net (CHF)', metrics.netCashflow],
-    ['Burn rate (CHF)', metrics.burnRate],
-    ['Runway (mois)', metrics.runway],
-    ['MRR (CHF)', metrics.mrr],
-    ['Clients actifs', metrics.activeCustomers],
-  ]), 'KPIs');
-
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-    ['Date', 'Libellé', 'Catégorie', 'Type', 'Montant (CHF)', 'Statut'],
-    ...transactions.map(t => [t.date, t.label, t.category, t.type, t.amount, t.payment_status]),
-  ]), 'Transactions');
-
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
-    ['Mois', 'Revenus (CHF)', 'Dépenses (CHF)'],
-    ...monthlyChartData.map(m => [m.month, m.revenue, m.expenses]),
-  ]), 'Évolution');
-
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
 function buildPDF({ title, metrics, monthlyChartData, transactions }) {
@@ -114,20 +79,20 @@ function buildPDF({ title, metrics, monthlyChartData, transactions }) {
     doc.fontSize(10)
       .text(`Cash disponible : CHF ${metrics.cash?.toLocaleString('fr-CH')}`)
       .text(`Revenus mensuels : CHF ${metrics.monthlyRevenue?.toLocaleString('fr-CH')}`)
-      .text(`Dépenses mensuelles : CHF ${metrics.monthlyExpenses?.toLocaleString('fr-CH')}`)
+      .text(`DÃ©penses mensuelles : CHF ${metrics.monthlyExpenses?.toLocaleString('fr-CH')}`)
       .text(`Cashflow net : CHF ${metrics.netCashflow?.toLocaleString('fr-CH')}`)
       .text(`Burn rate : CHF ${metrics.burnRate?.toLocaleString('fr-CH')}`)
       .text(`Runway : ${metrics.runway?.toFixed(1)} mois`)
       .text(`MRR : CHF ${metrics.mrr?.toLocaleString('fr-CH')}`)
       .text(`Clients actifs : ${metrics.activeCustomers}`);
 
-    doc.moveDown().fontSize(14).text('Évolution mensuelle');
+    doc.moveDown().fontSize(14).text('Ã‰volution mensuelle');
     doc.fontSize(10);
     monthlyChartData.forEach(m => {
-      doc.text(`${m.month} — Revenus: ${m.revenue?.toLocaleString('fr-CH')} | Dépenses: ${m.expenses?.toLocaleString('fr-CH')}`);
+      doc.text(`${m.month} â€” Revenus: ${m.revenue?.toLocaleString('fr-CH')} | DÃ©penses: ${m.expenses?.toLocaleString('fr-CH')}`);
     });
 
-    doc.moveDown().fontSize(14).text('Transactions récentes');
+    doc.moveDown().fontSize(14).text('Transactions rÃ©centes');
     doc.fontSize(10);
     transactions.slice(0, 20).forEach(t => {
       doc.text(`${t.date} | ${t.label} | ${t.category} | CHF ${t.amount?.toLocaleString('fr-CH')}`);
