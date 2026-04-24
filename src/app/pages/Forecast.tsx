@@ -27,7 +27,7 @@ function DeltaBadge({ base, sim }: { base: number; sim: number }) {
   const pct  = base !== 0 ? ((diff / Math.abs(base)) * 100).toFixed(1) : null;
   const pos  = diff >= 0;
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pos ? "bg-emerald-500/20 text-emerald-400" : "bg-red-500/20 text-red-400"}`}>
+    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${pos ? "bg-accent-blue/20 text-accent-blue" : "bg-accent-red-muted text-accent-red"}`}>
       {pos ? "+" : ""}{pct !== null ? `${pct}%` : "—"}
     </span>
   );
@@ -54,6 +54,8 @@ export function Forecast() {
   const [selectedScenario, setSelectedScenario] = useState("Base (Réaliste)");
   const [simParams, setSimParams]   = useState({ revenueChange: 0, expenseChange: 0, hiringCost: 0 });
   const [activePreset, setActivePreset] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState("");
 
   const scenarioResults = useMemo(() =>
     Object.fromEntries(
@@ -165,7 +167,7 @@ export function Forecast() {
             <Legend />
             <Area type="monotone" dataKey="conservateur" name="Conservateur" stroke="#f97316"              fill="transparent"       strokeWidth={2}   dot={false} />
             <Area type="monotone" dataKey="base"          name="Base"         stroke="var(--accent-blue)"  fill="url(#grad-base)"   strokeWidth={2.5} dot={false} />
-            <Area type="monotone" dataKey="ambitieux"     name="Ambitieux"    stroke="#10b981"              fill="transparent"       strokeWidth={2}   dot={false} />
+            <Area type="monotone" dataKey="ambitieux"     name="Ambitieux"    stroke="#eab308"              fill="transparent"       strokeWidth={2}   dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       </GlassCard>
@@ -224,7 +226,7 @@ export function Forecast() {
         {/* Sliders */}
         <div className="grid grid-cols-3 gap-8 mb-8">
           {([
-            { key: "revenueChange" as const, label: "Variation revenus",    unit: "%", min: -50,  max: 100,  step: 1,   color: "text-emerald-400" },
+            { key: "revenueChange" as const, label: "Variation revenus",    unit: "%", min: -50,  max: 100,  step: 1,   color: "text-accent-blue" },
             { key: "expenseChange" as const, label: "Variation dépenses",   unit: "%", min: -50,  max: 100,  step: 1,   color: "text-red-400"     },
             { key: "hiringCost"   as const,  label: "Coût embauche / mois", unit: "€", min: 0,    max: 50000, step: 500, color: "text-blue-400"   },
           ] as const).map(({ key, label, unit, min, max, step, color }) => {
@@ -234,11 +236,36 @@ export function Forecast() {
               <div key={key}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">{label}</span>
-                  <span className={`text-sm font-semibold tabular-nums ${color}`}>
-                    {key === "hiringCost"
-                      ? format(val)
-                      : `${val > 0 ? "+" : ""}${val}${unit}`}
-                  </span>
+                  {editingKey === key ? (
+                    <input
+                      type="number"
+                      min={min}
+                      max={max}
+                      step={step}
+                      value={editingValue}
+                      autoFocus
+                      onChange={e => setEditingValue(e.target.value)}
+                      onBlur={() => {
+                        const n = Math.min(max, Math.max(min, Number(editingValue) || 0));
+                        setSimParams(prev => ({ ...prev, [key]: n }));
+                        setActivePreset(null);
+                        setEditingKey(null);
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        if (e.key === "Escape") setEditingKey(null);
+                      }}
+                      className="w-20 text-right text-sm font-semibold tabular-nums bg-secondary/60 border border-accent-blue/40 rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-accent-blue/60"
+                    />
+                  ) : (
+                    <span
+                      title="Cliquer pour saisir une valeur"
+                      onClick={() => { setEditingKey(key); setEditingValue(String(val)); }}
+                      className={`text-sm font-semibold tabular-nums cursor-text select-none rounded px-1 hover:bg-secondary/60 transition-colors ${color}`}
+                    >
+                      {key === "hiringCost" ? format(val) : `${val > 0 ? "+" : ""}${val}${unit}`}
+                    </span>
+                  )}
                 </div>
                 <input
                   type="range"
@@ -281,7 +308,7 @@ export function Forecast() {
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-muted-foreground mb-0.5">Projeté</p>
-                  <p className={`text-sm font-semibold ${sim > base ? "text-emerald-400" : sim < base ? "text-red-400" : "text-foreground"}`}>
+                  <p className={`text-sm font-semibold ${sim > base ? "text-accent-blue" : sim < base ? "text-accent-red" : "text-foreground"}`}>
                     {isMonths ? `${Number(sim).toFixed(1)} m` : format(sim)}
                   </p>
                 </div>
@@ -300,8 +327,8 @@ export function Forecast() {
             <AreaChart data={simComparisonData}>
               <defs>
                 <linearGradient id="grad-sim" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor="#10b981" stopOpacity={0.25} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                  <stop offset="0%"   stopColor="#f97316" stopOpacity={0.25} />
+                  <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="grad-base-sim" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%"   stopColor="var(--accent-blue)" stopOpacity={0.15} />
@@ -314,7 +341,7 @@ export function Forecast() {
               <Tooltip {...CHART_TOOLTIP} formatter={(value: number) => format(value)} />
               <Legend />
               <Area type="monotone" dataKey="actuel" name="Base (actuel)"    stroke="var(--accent-blue)" fill="url(#grad-base-sim)" strokeWidth={2}   dot={false} strokeDasharray="5 3" />
-              <Area type="monotone" dataKey="simulé" name="Scénario simulé" stroke="#10b981"              fill="url(#grad-sim)"      strokeWidth={2.5} dot={false} />
+              <Area type="monotone" dataKey="simulé" name="Scénario simulé" stroke="#f97316"              fill="url(#grad-sim)"      strokeWidth={2.5} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -346,7 +373,7 @@ export function Forecast() {
                 <tr key={row.label} className="border-b border-glass-border/50">
                   <td className="p-4 text-sm text-foreground">{row.label}</td>
                   {SCENARIO_PARAMS.map(s => (
-                    <td key={s.name} className={`p-4 text-sm text-right ${s.name === "Ambitieux" ? "text-accent-blue" : "text-foreground"}`}>
+                    <td key={s.name} className={`p-4 text-sm text-right ${s.name === "Ambitieux" ? "text-[#eab308]" : s.name === "Conservateur" ? "text-[#f97316]" : "text-accent-blue"}`}>
                       {row.fmt(s.name)}
                     </td>
                   ))}

@@ -269,14 +269,32 @@ export function DateRangeBar() {
 
       {/* ── Date range picker ── */}
       <div className="relative" ref={calRef}>
-        <button
-          onClick={() => { setCalOpen(v => !v); setCmpOpen(false); setCurOpen(false); }}
-          className={btnCls}
-        >
-          <Calendar className="w-4 h-4 text-accent-blue shrink-0" />
-          <span>{formatRangeLabel(dateRange.from, dateRange.to)}</span>
-          <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${calOpen ? 'rotate-180' : ''}`} />
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={() => { setCalOpen(v => !v); setCmpOpen(false); setCurOpen(false); }}
+            className={`${btnCls} ${activePreset !== 'Mois précédent' ? 'rounded-r-none border-r-0' : ''}`}
+          >
+            <Calendar className="w-4 h-4 text-accent-blue shrink-0" />
+            <span>{formatRangeLabel(dateRange.from, dateRange.to)}</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${calOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {activePreset !== 'Mois précédent' && (
+            <button
+              onClick={() => {
+                const r = presets.find(p => p.label === 'Mois précédent')!.getRange();
+                setDateRange(r);
+                setLocalFrom(r.from);
+                setLocalTo(new Date(r.to.getTime() - 86400000));
+                setActivePreset('Mois précédent');
+                setPicking('from');
+              }}
+              title="Réinitialiser la période"
+              className="flex items-center justify-center py-2 px-2.5 rounded-r-xl border border-glass-border border-l-0 bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
 
         {calOpen && (
           <div className={dropCls} style={{ background: 'var(--popover)', left: 0 }}>
@@ -404,14 +422,25 @@ export function DateRangeBar() {
 
       {/* ── Comparison dropdown ── */}
       <div className="relative" ref={cmpRef}>
-        <button
-          onClick={() => { setCmpOpen(v => !v); setCalOpen(false); setCurOpen(false); }}
-          className={btnCls}
-        >
-          <span className="text-muted-foreground">⇆</span>
-          <span>{cmpLabel}</span>
-          <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${cmpOpen ? 'rotate-180' : ''}`} />
-        </button>
+        <div className="flex items-center">
+          <button
+            onClick={() => { setCmpOpen(v => !v); setCalOpen(false); setCurOpen(false); }}
+            className={`${btnCls} ${comparison !== 'none' ? 'rounded-r-none border-r-0' : ''}`}
+          >
+            <span className="text-muted-foreground">⇆</span>
+            <span>{cmpLabel}</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${cmpOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {comparison !== 'none' && (
+            <button
+              onClick={() => setComparison('none')}
+              title="Réinitialiser la comparaison"
+              className="flex items-center justify-center w-8 h-full px-0 rounded-r-xl border border-glass-border border-l-0 bg-secondary/30 text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
 
         {cmpOpen && (
           <div className={dropCls} style={{ background: 'var(--popover)', minWidth: '260px', left: 0 }}>

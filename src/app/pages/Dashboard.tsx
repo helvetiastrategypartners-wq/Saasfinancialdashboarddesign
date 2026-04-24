@@ -1,6 +1,6 @@
-import { motion, AnimatePresence } from "motion/react";
+import { motion } from "motion/react";
 import { useState, useMemo } from "react";
-import { TrendingUp, TrendingDown, DollarSign, BarChart2, Flame, Clock, GitCompare, type LucideIcon } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, BarChart2, Flame, Clock, type LucideIcon } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, ComposedChart, ReferenceLine,
@@ -10,7 +10,6 @@ import { useCurrency }   from "../contexts/CurrencyContext";
 import { useDateRange }  from "../contexts/DateRangeContext";
 import { DateRangeBar }  from "../components/DateRangeBar";
 import ExportButton      from "../components/ExportButton";
-import { PeriodComparator } from "../components/PeriodComparator";
 import { GlassCard }     from "../components/ui/GlassCard";
 import { PageHeader }    from "../components/ui/PageHeader";
 import { CHART_TOOLTIP } from "../lib/chartConfig";
@@ -90,8 +89,7 @@ export function Dashboard() {
   const { metrics, transactions } = useMetrics();
   const { format }                = useCurrency();
   const { dateRange, comparisonRange } = useDateRange();
-  const [showComparator, setShowComparator] = useState(false);
-  const [chartMode, setChartMode]           = useState<"line" | "candle">("line");
+  const [chartMode, setChartMode] = useState<"line" | "candle">("line");
 
   const periodMetrics = useMemo(
     () => calcPeriodMetrics(transactions, { start: dateRange.from, end: dateRange.to }),
@@ -234,31 +232,12 @@ export function Dashboard() {
       <PageHeader
         title="Dashboard"
         subtitle={`Vue d'ensemble — ${rangeLabel}`}
-        action={
-          <>
-            <button
-              onClick={() => setShowComparator(v => !v)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                showComparator
-                  ? "bg-accent-blue text-white border-accent-blue"
-                  : "bg-secondary/50 border-glass-border text-foreground hover:border-accent-blue/40 hover:text-accent-blue"
-              }`}
-            >
-              <GitCompare className="w-4 h-4" />
-              Comparer des périodes
-            </button>
-            <ExportButton title="Monthly_Sales_Report" />
-          </>
-        }
+        action={<ExportButton title="Monthly_Sales_Report" />}
       />
 
       <div className="flex items-center gap-2 flex-wrap">
         <DateRangeBar />
       </div>
-
-      <AnimatePresence>
-        {showComparator && <PeriodComparator transactions={transactions} />}
-      </AnimatePresence>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-3 gap-6">
