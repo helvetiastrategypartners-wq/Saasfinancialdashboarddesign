@@ -8,6 +8,13 @@ import {
   getPeriodBounds, calcPeriodMetrics,
 } from "../lib/periodUtils";
 import type { Transaction } from "@shared/types";
+import { downloadBlob } from "../lib/download";
+import {
+  appendPdfPageNumbers,
+  createCsvRow,
+  formatCompactNumber,
+} from "../lib/exportUtils";
+import { ExportActions } from "./ExportActions";
 
 const selectCls =
   "px-3 py-2 rounded-xl bg-secondary/50 border border-glass-border text-foreground text-sm " +
@@ -19,17 +26,6 @@ const TYPES: { key: PeriodType; label: string }[] = [
   { key: "quarter", label: "Trimestre" },
   { key: "year", label: "Annee" },
 ];
-
-function triggerDl(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
 
 function SubSel({ sel, onChange, type }: { sel: PeriodSel; onChange: (s: PeriodSel) => void; type: PeriodType }) {
   return (
@@ -161,16 +157,11 @@ export function PeriodComparator({ transactions }: { transactions: Transaction[]
   const pctCell = (a: number, b: number) => b !== 0 ? `${((a - b) / Math.abs(b) * 100).toFixed(1)} %` : "-";
 
   const exportCSV = () => {
-    const cell = (value: string | number) => {
-      const s = String(value);
-      return s.includes(";") || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const row = (cols: (string | number)[]) => cols.map(cell).join(";");
     const lines = [
-      row(["Indicateur", boundsA.label, boundsB.label, "Delta (A - B)", "Variation (%)"]),
-      ...exportRows.map(r => row([r.label, fmtCell(r.a, r.isPercent), fmtCell(r.b, r.isPercent), deltaCell(r.a, r.b, r.isPercent), pctCell(r.a, r.b)])),
+      createCsvRow(["Indicateur", boundsA.label, boundsB.label, "Delta (A - B)", "Variation (%)"]),
+      ...exportRows.map(r => createCsvRow([r.label, fmtCell(r.a, r.isPercent), fmtCell(r.b, r.isPercent), deltaCell(r.a, r.b, r.isPercent), pctCell(r.a, r.b)])),
     ];
-    triggerDl(new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" }), `${exportTitle}.csv`);
+    downloadBlob(new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8;" }), `${exportTitle}.csv`);
   };
 
   const exportPDF = async () => {
@@ -183,17 +174,10 @@ export function PeriodComparator({ transactions }: { transactions: Transaction[]
       const accent: [number, number, number] = [220, 50, 50];
       const blue: [number, number, number] = [59, 130, 246];
 
-      const numPDF = (value: number) => {
-        const abs = Math.abs(value);
-        const hasCents = Math.round(abs * 100) % 100 !== 0;
-        const [intPart, decPart] = abs.toFixed(hasCents ? 2 : 0).split(".");
-        const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-        return (value < 0 ? "-" : "") + (hasCents ? `${formattedInt}.${decPart}` : formattedInt);
-      };
-      const fmtPDF = (value: number, isPercent: boolean) => isPercent ? `${value.toFixed(2)} %` : `CHF ${numPDF(value)}`;
+      const fmtPDF = (value: number, isPercent: boolean) => isPercent ? `${value.toFixed(2)} %` : `CHF ${formatCompactNumber(value)}`;
       const deltaPDF = (a: number, b: number, isPercent: boolean) => {
         const d = a - b;
-        return isPercent ? `${d >= 0 ? "+" : ""}${d.toFixed(2)} pts` : `${d >= 0 ? "+" : "-"}CHF ${numPDF(Math.abs(d))}`;
+        return isPercent ? `${d >= 0 ? "+" : ""}${d.toFixed(2)} pts` : `${d >= 0 ? "+" : "-"}CHF ${formatCompactNumber(Math.abs(d))}`;
       };
 
       doc.setFillColor(...accent);
@@ -229,14 +213,7 @@ export function PeriodComparator({ transactions }: { transactions: Transaction[]
         margin: { left: 14, right: 14 },
       });
 
-      const internal = doc.internal as any;
-      const pages = internal.getNumberOfPages ? internal.getNumberOfPages() : internal.pages.length - 1;
-      for (let i = 1; i <= pages; i += 1) {
-        doc.setPage(i);
-        doc.setFontSize(7.5);
-        doc.setTextColor(160, 160, 160);
-        doc.text(`Page ${i} / ${pages}`, width / 2, 290, { align: "center" });
-      }
+      appendPdfPageNumbers(doc, width);
 
       doc.save(`${exportTitle}.pdf`);
     } catch (err) {
@@ -262,19 +239,18 @@ export function PeriodComparator({ transactions }: { transactions: Transaction[]
         </h3>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1">
-            {[
+            <ExportActions
+              actions={[
               { fmt: "pdf", label: "PDF", cls: "border-accent-red/30 text-accent-red hover:bg-accent-red/10", action: exportPDF },
               { fmt: "csv", label: "CSV", cls: "border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10", action: exportCSV },
-            ].map(button => (
-              <button
-                key={button.fmt}
-                onClick={button.action}
-                disabled={loading === button.fmt}
-                className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all disabled:opacity-40 ${button.cls}`}
-              >
-                {loading === button.fmt ? "..." : `Export ${button.label}`}
-              </button>
-            ))}
+              ].map(button => ({
+                format: button.fmt,
+                label: button.label,
+                action: button.action,
+                className: button.cls,
+              }))}
+              loading={loading}
+            />
           </div>
           <div className="flex gap-1 p-1 rounded-xl bg-secondary/30 border border-glass-border">
             {TYPES.map(t => (

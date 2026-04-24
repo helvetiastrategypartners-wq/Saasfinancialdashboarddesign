@@ -2,6 +2,16 @@ import React, { useState, useMemo } from 'react';
 import { useMetrics } from '../contexts/MetricsContext';
 import { useDateRange } from '../contexts/DateRangeContext';
 import { calcPeriodMetrics } from '../lib/periodUtils';
+import { downloadBlob } from '../lib/download';
+import {
+  appendPdfPageNumbers,
+  createCsvRow,
+  formatChfValue,
+  formatCompactNumber,
+  formatDeltaPercent,
+  formatExportRange,
+} from '../lib/exportUtils';
+import { ExportActions } from './ExportActions';
 
 const ExportButton = ({ title = 'Dashboard' }) => {
   const { metrics, transactions } = useMetrics();
@@ -72,16 +82,9 @@ const ExportButton = ({ title = 'Dashboard' }) => {
       .map(({ month, revenue, expenses }) => ({ month, revenue, expenses }));
   }, [periodTx]);
 
-  const fmtRange = (from, to) => {
-    const fromLabel = from.toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' });
-    const toEnd = new Date(to.getTime() - 86400000);
-    const toLabel = toEnd.toLocaleDateString('fr-CH', { month: 'short', year: '2-digit' });
-    return fromLabel === toLabel ? fromLabel : `${fromLabel} - ${toLabel}`;
-  };
-
-  const rangeLabel = useMemo(() => fmtRange(dateRange.from, dateRange.to), [dateRange]);
+  const rangeLabel = useMemo(() => formatExportRange(dateRange.from, dateRange.to), [dateRange]);
   const compLabel = useMemo(
-    () => (comparisonRange ? fmtRange(comparisonRange.from, comparisonRange.to) : null),
+    () => (comparisonRange ? formatExportRange(comparisonRange.from, comparisonRange.to) : null),
     [comparisonRange],
   );
 
@@ -89,54 +92,42 @@ const ExportButton = ({ title = 'Dashboard' }) => {
   const periodBurnRate = periodDurationMonths > 0.1 ? periodMetrics.exp / periodDurationMonths : metrics.burnRate;
   const periodRunway = periodBurnRate > 0 ? metrics.cash / periodBurnRate : metrics.runway;
 
-  const delta = (curr, prev) => (
-    prev != null && prev !== 0 ? `${((curr - prev) / Math.abs(prev) * 100).toFixed(1)}%` : '-'
-  );
-
   const exportCSV = () => {
-    const cell = value => {
-      const stringValue = String(value ?? '');
-      return stringValue.includes(';') || stringValue.includes('"') || stringValue.includes('\n')
-        ? `"${stringValue.replace(/"/g, '""')}"`
-        : stringValue;
-    };
-    const row = cols => cols.map(cell).join(';');
-
     const hasComp = prevMetrics !== null;
     const rows = [
-      row([`Rapport - ${rangeLabel}`, hasComp ? `vs ${compLabel}` : '', hasComp ? 'Variation' : '']),
+      createCsvRow([`Rapport - ${rangeLabel}`, hasComp ? `vs ${compLabel}` : '', hasComp ? 'Variation' : '']),
       '',
-      row(['--- Indicateurs financiers ---']),
-      row(['Metrique', rangeLabel, ...(hasComp ? [compLabel, 'Variation'] : [])]),
-      row(['Revenus (CHF)', periodMetrics.rev, ...(hasComp ? [prevMetrics.rev, delta(periodMetrics.rev, prevMetrics.rev)] : [])]),
-      row(['Depenses (CHF)', periodMetrics.exp, ...(hasComp ? [prevMetrics.exp, delta(periodMetrics.exp, prevMetrics.exp)] : [])]),
-      row(['Cashflow net (CHF)', periodMetrics.net, ...(hasComp ? [prevMetrics.net, delta(periodMetrics.net, prevMetrics.net)] : [])]),
-      row(['Marge brute (%)', periodMetrics.gm.toFixed(2), ...(hasComp ? [prevMetrics.gm.toFixed(2), delta(periodMetrics.gm, prevMetrics.gm)] : [])]),
+      createCsvRow(['--- Indicateurs financiers ---']),
+      createCsvRow(['Metrique', rangeLabel, ...(hasComp ? [compLabel, 'Variation'] : [])]),
+      createCsvRow(['Revenus (CHF)', periodMetrics.rev, ...(hasComp ? [prevMetrics.rev, formatDeltaPercent(periodMetrics.rev, prevMetrics.rev)] : [])]),
+      createCsvRow(['Depenses (CHF)', periodMetrics.exp, ...(hasComp ? [prevMetrics.exp, formatDeltaPercent(periodMetrics.exp, prevMetrics.exp)] : [])]),
+      createCsvRow(['Cashflow net (CHF)', periodMetrics.net, ...(hasComp ? [prevMetrics.net, formatDeltaPercent(periodMetrics.net, prevMetrics.net)] : [])]),
+      createCsvRow(['Marge brute (%)', periodMetrics.gm.toFixed(2), ...(hasComp ? [prevMetrics.gm.toFixed(2), formatDeltaPercent(periodMetrics.gm, prevMetrics.gm)] : [])]),
       '',
-      row(['--- Indicateurs globaux (snapshot) ---']),
-      row(['Metrique', 'Valeur']),
-      row(['Cash disponible (CHF)', metrics.cash]),
-      row(['Burn rate periode (CHF)', periodBurnRate]),
-      row(['Runway (mois)', periodRunway.toFixed(1)]),
-      row(['MRR (CHF)', metrics.mrr]),
-      row(['Clients actifs', metrics.activeCustomers]),
-      row(['Nouveaux clients (mois)', metrics.newCustomersMonth]),
+      createCsvRow(['--- Indicateurs globaux (snapshot) ---']),
+      createCsvRow(['Metrique', 'Valeur']),
+      createCsvRow(['Cash disponible (CHF)', metrics.cash]),
+      createCsvRow(['Burn rate periode (CHF)', periodBurnRate]),
+      createCsvRow(['Runway (mois)', periodRunway.toFixed(1)]),
+      createCsvRow(['MRR (CHF)', metrics.mrr]),
+      createCsvRow(['Clients actifs', metrics.activeCustomers]),
+      createCsvRow(['Nouveaux clients (mois)', metrics.newCustomersMonth]),
       '',
-      row(['--- Evolution mensuelle ---']),
-      row(['Mois', 'Revenus (CHF)', 'Depenses (CHF)', 'Cashflow net (CHF)']),
-      ...periodMonthlyData.map(m => row([m.month, m.revenue, m.expenses, (m.revenue ?? 0) - (m.expenses ?? 0)])),
+      createCsvRow(['--- Evolution mensuelle ---']),
+      createCsvRow(['Mois', 'Revenus (CHF)', 'Depenses (CHF)', 'Cashflow net (CHF)']),
+      ...periodMonthlyData.map(m => createCsvRow([m.month, m.revenue, m.expenses, (m.revenue ?? 0) - (m.expenses ?? 0)])),
       '',
-      row(['--- Depenses par categorie ---']),
-      row(['Categorie', 'Montant (CHF)']),
-      ...periodExpByCategory.map(e => row([e.name, e.value])),
+      createCsvRow(['--- Depenses par categorie ---']),
+      createCsvRow(['Categorie', 'Montant (CHF)']),
+      ...periodExpByCategory.map(e => createCsvRow([e.name, e.value])),
       '',
-      row([`--- Transactions (${rangeLabel}) ---`]),
-      row(['Date', 'Libelle', 'Categorie', 'Type', 'Montant (CHF)', 'Statut']),
-      ...periodTx.map(t => row([t.date, t.label, t.category, t.type, t.amount, t.payment_status])),
+      createCsvRow([`--- Transactions (${rangeLabel}) ---`]),
+      createCsvRow(['Date', 'Libelle', 'Categorie', 'Type', 'Montant (CHF)', 'Statut']),
+      ...periodTx.map(t => createCsvRow([t.date, t.label, t.category, t.type, t.amount, t.payment_status])),
     ];
 
     const csv = '\uFEFF' + rows.join('\n');
-    triggerDownload(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${title}_${rangeLabel}.csv`);
+    downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `${title}_${rangeLabel}.csv`);
   };
 
   const exportPDF = async () => {
@@ -164,17 +155,6 @@ const ExportButton = ({ title = 'Dashboard' }) => {
 
       let y = 26;
 
-      const num = value => {
-        const n = Number(value ?? 0);
-        const sign = n < 0 ? '-' : '';
-        const abs = Math.abs(n);
-        const hasCents = Math.round(abs * 100) % 100 !== 0;
-        const [intPart, decPart] = abs.toFixed(hasCents ? 2 : 0).split('.');
-        const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-        return sign + (hasCents ? `${formattedInt}.${decPart}` : formattedInt);
-      };
-      const chf = value => `CHF ${num(value)}`;
-
       doc.setTextColor(...accent);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
@@ -187,15 +167,15 @@ const ExportButton = ({ title = 'Dashboard' }) => {
 
       const kpiBody = hasComp
         ? [
-            ['Revenus', chf(periodMetrics.rev), chf(prevMetrics.rev), delta(periodMetrics.rev, prevMetrics.rev)],
-            ['Depenses', chf(periodMetrics.exp), chf(prevMetrics.exp), delta(periodMetrics.exp, prevMetrics.exp)],
-            ['Cashflow net', chf(periodMetrics.net), chf(prevMetrics.net), delta(periodMetrics.net, prevMetrics.net)],
-            ['Marge brute', `${periodMetrics.gm.toFixed(1)}%`, `${prevMetrics.gm.toFixed(1)}%`, delta(periodMetrics.gm, prevMetrics.gm)],
+            ['Revenus', formatChfValue(periodMetrics.rev), formatChfValue(prevMetrics.rev), formatDeltaPercent(periodMetrics.rev, prevMetrics.rev)],
+            ['Depenses', formatChfValue(periodMetrics.exp), formatChfValue(prevMetrics.exp), formatDeltaPercent(periodMetrics.exp, prevMetrics.exp)],
+            ['Cashflow net', formatChfValue(periodMetrics.net), formatChfValue(prevMetrics.net), formatDeltaPercent(periodMetrics.net, prevMetrics.net)],
+            ['Marge brute', `${periodMetrics.gm.toFixed(1)}%`, `${prevMetrics.gm.toFixed(1)}%`, formatDeltaPercent(periodMetrics.gm, prevMetrics.gm)],
           ]
         : [
-            ['Revenus', chf(periodMetrics.rev)],
-            ['Depenses', chf(periodMetrics.exp)],
-            ['Cashflow net', chf(periodMetrics.net)],
+            ['Revenus', formatChfValue(periodMetrics.rev)],
+            ['Depenses', formatChfValue(periodMetrics.exp)],
+            ['Cashflow net', formatChfValue(periodMetrics.net)],
             ['Marge brute', `${periodMetrics.gm.toFixed(1)}%`],
           ];
 
@@ -220,8 +200,8 @@ const ExportButton = ({ title = 'Dashboard' }) => {
       autoTable(doc, {
         startY: y,
         body: [
-          ['Cash disponible', chf(metrics.cash), 'Burn rate periode', chf(periodBurnRate)],
-          ['Runway', `${periodRunway.toFixed(1)} mois`, 'MRR', chf(metrics.mrr)],
+          ['Cash disponible', formatChfValue(metrics.cash), 'Burn rate periode', formatChfValue(periodBurnRate)],
+          ['Runway', `${periodRunway.toFixed(1)} mois`, 'MRR', formatChfValue(metrics.mrr)],
           ['Clients actifs', `${metrics.activeCustomers}`, 'Nouveaux (mois)', `+${metrics.newCustomersMonth}`],
         ],
         theme: 'grid',
@@ -245,7 +225,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
       autoTable(doc, {
         startY: y,
         head: [['Mois', 'Revenus (CHF)', 'Depenses (CHF)', 'Cashflow net (CHF)']],
-        body: periodMonthlyData.map(m => [m.month, num(m.revenue), num(m.expenses), num((m.revenue ?? 0) - (m.expenses ?? 0))]),
+        body: periodMonthlyData.map(m => [m.month, formatCompactNumber(m.revenue), formatCompactNumber(m.expenses), formatCompactNumber((m.revenue ?? 0) - (m.expenses ?? 0))]),
         theme: 'striped',
         headStyles: { fillColor: blue, fontSize: 8.5 },
         styles: { fontSize: 8.5, cellPadding: 2.5 },
@@ -271,7 +251,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
           const total = periodExpByCategory.reduce((sum, item) => sum + (item.value ?? 0), 0);
           return periodExpByCategory.map(item => [
             item.name,
-            num(item.value),
+            formatCompactNumber(item.value),
             total > 0 ? `${((item.value / total) * 100).toFixed(1)}%` : '-',
           ]);
         })(),
@@ -301,7 +281,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
           t.label,
           t.category,
           t.type === 'income' ? 'Revenu' : 'Depense',
-          `${t.type === 'income' ? '+' : '-'}${num(t.amount)}`,
+          `${t.type === 'income' ? '+' : '-'}${formatCompactNumber(t.amount)}`,
         ]),
         theme: 'striped',
         headStyles: { fillColor: blue, fontSize: 8.5 },
@@ -315,13 +295,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
         },
       });
 
-      const pages = doc.internal.getNumberOfPages();
-      for (let i = 1; i <= pages; i += 1) {
-        doc.setPage(i);
-        doc.setFontSize(7.5);
-        doc.setTextColor(160, 160, 160);
-        doc.text(`Page ${i} / ${pages}`, width / 2, 290, { align: 'center' });
-      }
+      appendPdfPageNumbers(doc, width);
 
       doc.save(`${title}_${rangeLabel}.pdf`);
     } catch (err) {
@@ -331,17 +305,6 @@ const ExportButton = ({ title = 'Dashboard' }) => {
     }
   };
 
-  const triggerDownload = (blob, filename) => {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  };
-
   const buttons = [
     { format: 'pdf', label: 'PDF', action: exportPDF, className: 'border-accent-red/30 text-accent-red hover:bg-accent-red/10' },
     { format: 'csv', label: 'CSV', action: exportCSV, className: 'border-accent-blue/30 text-accent-blue hover:bg-accent-blue/10' },
@@ -349,16 +312,7 @@ const ExportButton = ({ title = 'Dashboard' }) => {
 
   return (
     <div className="flex items-center gap-2">
-      {buttons.map(({ format, label, action, className }) => (
-        <button
-          key={format}
-          onClick={action}
-          disabled={loading === format}
-          className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-200 disabled:opacity-40 ${className}`}
-        >
-          {loading === format ? '...' : `Export ${label}`}
-        </button>
-      ))}
+      <ExportActions actions={buttons} loading={loading} />
     </div>
   );
 };
