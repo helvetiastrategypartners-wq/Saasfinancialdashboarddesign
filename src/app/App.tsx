@@ -21,5 +21,5 @@ export default function App() {
         </DateRangeProvider>
       </CurrencyProvider>
     </ThemeProvider>
-  )
+  );
 }
