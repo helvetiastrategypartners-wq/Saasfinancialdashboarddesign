@@ -20,19 +20,25 @@ function figmaAssetResolver() {
 
 export default defineConfig(({ mode }) => {
   const enableAnalyzer = process.env.ANALYZE === 'true'
+  const plugins = [
+    figmaAssetResolver(),
+    react(),
+    tailwindcss(),
+  ]
 
-  return {
-    plugins: [
-      figmaAssetResolver(),
-      react(),
-      tailwindcss(),
+  if (enableAnalyzer) {
+    plugins.push(
       visualizer({
         filename: 'stats.html',
-        open: enableAnalyzer && mode === 'development',
+        open: mode === 'development',
         gzipSize: true,
         brotliSize: true,
       }),
-    ],
+    )
+  }
+
+  return {
+    plugins,
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
@@ -44,6 +50,30 @@ export default defineConfig(({ mode }) => {
           manualChunks(id) {
             if (!id.includes('node_modules')) {
               return undefined
+            }
+
+            if (id.includes('react-dom') || id.match(/[\\/]node_modules[\\/]react[\\/]/)) {
+              return 'react-core'
+            }
+
+            if (id.includes('react-router')) {
+              return 'router'
+            }
+
+            if (id.includes('motion')) {
+              return 'motion'
+            }
+
+            if (id.includes('lucide-react')) {
+              return 'icons'
+            }
+
+            if (id.includes('@radix-ui')) {
+              return 'radix'
+            }
+
+            if (id.includes('@mui') || id.includes('@emotion')) {
+              return 'mui'
             }
 
             if (id.includes('jspdf')) {

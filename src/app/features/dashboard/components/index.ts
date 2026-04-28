@@ -4,3 +4,4 @@ export { ExpenseBreakdownChart } from "./ExpenseBreakdownChart";
 export { CashflowBarChart } from "./CashflowBarChart";
 export { RecentTransactionsCard } from "./RecentTransactionsCard";
 export { SummaryGrid } from "./SummaryGrid";
+export { DeferredExportButton } from "./DeferredExportButton";

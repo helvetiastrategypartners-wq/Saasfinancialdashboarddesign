@@ -3,12 +3,13 @@ import { DollarSign, TrendingUp, TrendingDown, BarChart2, Flame, Clock } from "l
 import { useMetrics } from "../../contexts/MetricsContext";
 import { useCurrency } from "../../contexts/CurrencyContext";
 import { useDateRange } from "../../contexts/DateRangeContext";
-import { DateRangeBar } from "../../components/DateRangeBar";
-import ExportButton from "../../components/ExportButton";
 import { PageHeader } from "../../components/ui/PageHeader";
-import { KpiCard, RecentTransactionsCard, SummaryGrid } from "./components";
+import { DeferredExportButton, KpiCard, RecentTransactionsCard, SummaryGrid } from "./components";
 import { useDashboardData } from "./hooks";
 
+const DateRangeBar = lazy(() =>
+  import("../../components/DateRangeBar").then((module) => ({ default: module.DateRangeBar })),
+);
 const RevenueExpensesChart = lazy(() =>
   import("./components/RevenueExpensesChart").then((module) => ({ default: module.RevenueExpensesChart })),
 );
@@ -24,6 +25,15 @@ function ChartFallback({ height = 300 }: { height?: number }) {
     <div
       className="rounded-2xl border border-glass-border animate-pulse"
       style={{ background: "var(--glass-bg)", minHeight: height }}
+    />
+  );
+}
+
+function ToolbarFallback() {
+  return (
+    <div
+      className="h-11 rounded-xl border border-glass-border animate-pulse"
+      style={{ background: "var(--glass-bg)", width: 420, maxWidth: "100%" }}
     />
   );
 }
@@ -63,11 +73,13 @@ export function Dashboard() {
       <PageHeader
         title="Dashboard"
         subtitle={`Vue d'ensemble - ${rangeLabel}`}
-        action={<ExportButton title="Monthly_Sales_Report" />}
+        action={<DeferredExportButton title="Monthly_Sales_Report" />}
       />
 
       <div className="flex items-center gap-2 flex-wrap">
-        <DateRangeBar />
+        <Suspense fallback={<ToolbarFallback />}>
+          <DateRangeBar />
+        </Suspense>
       </div>
 
       <div className="grid grid-cols-3 gap-6">
