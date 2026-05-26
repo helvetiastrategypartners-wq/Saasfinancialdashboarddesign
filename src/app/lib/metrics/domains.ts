@@ -7,7 +7,6 @@ import { marketingMetricsMethods } from "./marketing";
 import { strategyMetricsMethods } from "./strategy";
 import { summaryMetricsMethods } from "./summary";
 import { unitEconomicsMetricsMethods } from "./unitEconomics";
-
 export const metricsDomainMethods = [
     dashboardMetricsMethods,
     financeMetricsMethods,

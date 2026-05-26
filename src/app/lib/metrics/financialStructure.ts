@@ -1,56 +1,47 @@
 import type { MetricsRuntime } from "./context";
 export const financialStructureMetricsMethods = {
-// ── FINANCIAL STRUCTURE ───────────────────────────────────────────────────
-
-calculateWorkingCapital(this: MetricsRuntime): number {
-const totalReceivables = this.receivables.reduce((s, r) => s + r.amount, 0);
-const totalInventory   = this.inventory.reduce((s, i) => s + i.quantity * i.unit_cost, 0);
-let totalPayables = 0;
-for (const t of this.transactions) {
-    if (t.type === "expense" && t.payment_status === "pending" && t.category === "Direct Costs") {
-        totalPayables += t.amount;
+    calculateWorkingCapital(this: MetricsRuntime): number {
+        const totalReceivables = this.receivables.reduce((s, r) => s + r.amount, 0);
+        const totalInventory = this.inventory.reduce((s, i) => s + i.quantity * i.unit_cost, 0);
+        let totalPayables = 0;
+        for (const t of this.transactions) {
+            if (t.type === "expense" && t.payment_status === "pending" && t.category === "Direct Costs") {
+                totalPayables += t.amount;
+            }
+        }
+        return totalReceivables + totalInventory - totalPayables;
+    },
+    calculateDSO(this: MetricsRuntime): number {
+        const totalReceivables = this.receivables.reduce((s, r) => s + r.amount, 0);
+        const dailyRevenue = this.getLastMonthData().revenue / 30;
+        return dailyRevenue > 0 ? totalReceivables / dailyRevenue : 0;
+    },
+    calculateDIO(this: MetricsRuntime): number {
+        const totalInventoryValue = this.inventory.reduce((s, i) => s + i.quantity * i.unit_cost, 0);
+        const dailyCOGS = this.getDirectCOGS() / 30;
+        return dailyCOGS > 0 ? totalInventoryValue / dailyCOGS : 0;
+    },
+    calculateDPO(this: MetricsRuntime): number {
+        let directPayables = 0;
+        for (const t of this.transactions) {
+            if (t.type === "expense" && t.payment_status === "pending" && t.category === "Direct Costs") {
+                directPayables += t.amount;
+            }
+        }
+        const dailyCOGS = this.getDirectCOGS() / 30;
+        return dailyCOGS > 0 ? directPayables / dailyCOGS : 0;
+    },
+    calculateCashConversionCycle(this: MetricsRuntime): number {
+        return this.calculateDSO() + this.calculateDIO() - this.calculateDPO();
+    },
+    calculateTotalDebtPayments(this: MetricsRuntime): number {
+        return this.debts.reduce((s, d) => s + (d.monthly_repayment || 0), 0);
+    },
+    calculateLeverageRatio(this: MetricsRuntime): number {
+        const ebitda = this.calculateEBITDA();
+        return ebitda > 0 ? this.calculateTotalDebt() / ebitda : 0;
+    },
+    calculateDebtService(this: MetricsRuntime): number {
+        return this.calculateTotalDebtPayments();
     }
-}
-return totalReceivables + totalInventory - totalPayables;
-},
-
-calculateDSO(this: MetricsRuntime): number {
-const totalReceivables = this.receivables.reduce((s, r) => s + r.amount, 0);
-const dailyRevenue = this.getLastMonthData().revenue / 30;
-return dailyRevenue > 0 ? totalReceivables / dailyRevenue : 0;
-},
-
-calculateDIO(this: MetricsRuntime): number {
-const totalInventoryValue = this.inventory.reduce((s, i) => s + i.quantity * i.unit_cost, 0);
-const dailyCOGS = this.getDirectCOGS() / 30;
-return dailyCOGS > 0 ? totalInventoryValue / dailyCOGS : 0;
-},
-
-calculateDPO(this: MetricsRuntime): number {
-let directPayables = 0;
-for (const t of this.transactions) {
-    if (t.type === "expense" && t.payment_status === "pending" && t.category === "Direct Costs") {
-        directPayables += t.amount;
-    }
-}
-const dailyCOGS = this.getDirectCOGS() / 30;
-return dailyCOGS > 0 ? directPayables / dailyCOGS : 0;
-},
-
-calculateCashConversionCycle(this: MetricsRuntime): number {
-return this.calculateDSO() + this.calculateDIO() - this.calculateDPO();
-},
-
-calculateTotalDebtPayments(this: MetricsRuntime): number {
-return this.debts.reduce((s, d) => s + (d.monthly_repayment || 0), 0);
-},
-
-calculateLeverageRatio(this: MetricsRuntime): number {
-const ebitda = this.calculateEBITDA();
-return ebitda > 0 ? this.calculateTotalDebt() / ebitda : 0;
-},
-
-calculateDebtService(this: MetricsRuntime): number {
-return this.calculateTotalDebtPayments();
-},
 };

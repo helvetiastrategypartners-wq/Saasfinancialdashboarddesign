@@ -1,6 +1,6 @@
 import type {
     Transaction, Customer, MarketingMetrics, CalculatedMetrics,
-    Product, Debt, InventoryItem, Receivable, Goal,
+    Product, Debt, InventoryItem, Receivable, Goal
 } from "@shared/types";
 
 export type LastMonthData = {
