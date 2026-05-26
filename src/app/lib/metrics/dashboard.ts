@@ -25,23 +25,19 @@ export const dashboardMetricsMethods = {
         cash: number;
     }> {
         const ref = this._refDate;
-
         return Array.from({ length: months }, (_, i) => {
             const date = getMonthStart(ref, months - 1 - i);
             const key = date.toISOString().slice(0, 7);
             const txs = this._txByMonthKey.get(key) ?? [];
             let cash = 0;
-
             for (const transaction of txs) {
                 if (transaction.payment_status !== "completed") {
                     continue;
                 }
-
                 cash += transaction.type === "income"
                     ? transaction.amount
                     : -transaction.amount;
             }
-
             return {
                 month: date.toLocaleDateString("fr-CH", {
                     month: "short",
@@ -62,48 +58,38 @@ export const dashboardMetricsMethods = {
         const firstMonthDate = getMonthStart(ref, months - 1);
         const firstMonthKey = firstMonthDate.toISOString().slice(0, 7);
         let runningBalance = 0;
-
         for (const [key, txs] of this._txByMonthKey) {
             if (key >= firstMonthKey) {
                 continue;
             }
-
             for (const transaction of txs) {
                 if (transaction.payment_status !== "completed") {
                     continue;
                 }
-
                 runningBalance += transaction.type === "income"
                     ? transaction.amount
                     : -transaction.amount;
             }
         }
-
         let prevNetFlow: number | null = null;
-
         return Array.from({ length: months }, (_, i) => {
             const date = getMonthStart(ref, months - 1 - i);
             const key = date.toISOString().slice(0, 7);
             const txs = this._txByMonthKey.get(key) ?? [];
             let netFlow = 0;
-
             for (const transaction of txs) {
                 if (transaction.payment_status !== "completed") {
                     continue;
                 }
-
                 netFlow += transaction.type === "income"
                     ? transaction.amount
                     : -transaction.amount;
             }
-
             const variationPercent = prevNetFlow !== null && prevNetFlow !== 0
                 ? ((netFlow - prevNetFlow) / Math.abs(prevNetFlow)) * 100
                 : null;
-
             runningBalance += netFlow;
             prevNetFlow = netFlow;
-
             return {
                 month: date.toLocaleDateString("fr-CH", {
                     month: "short",

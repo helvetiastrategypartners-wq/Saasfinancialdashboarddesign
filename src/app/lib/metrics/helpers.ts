@@ -2,11 +2,9 @@ import type { Customer, MarketingMetrics, Transaction } from "@shared/types";
 
 export function sumAmounts(txs: Transaction[]): number {
     let sum = 0;
-
     for (const transaction of txs) {
         sum += transaction.amount;
     }
-
     return sum;
 }
 
@@ -18,12 +16,10 @@ export function filterTxPure(
     status = "completed",
 ): Transaction[] {
     const result: Transaction[] = [];
-
     for (const [key, txs] of index) {
         if (key < startKey || key >= endKey) {
             continue;
         }
-
         for (const transaction of txs) {
             if (
                 transaction.payment_status === status &&
@@ -33,7 +29,6 @@ export function filterTxPure(
             }
         }
     }
-
     return result;
 }
 
@@ -43,17 +38,14 @@ export function getMonthStart(ref: Date, monthsAgo = 0): Date {
 
 export function computeCashBalance(txs: Transaction[]): number {
     let cash = 0;
-
     for (const transaction of txs) {
         if (transaction.payment_status !== "completed") {
             continue;
         }
-
         cash += transaction.type === "income"
             ? transaction.amount
             : -transaction.amount;
     }
-
     return cash;
 }
 
@@ -67,11 +59,9 @@ export function computeCAC(
         customer.acquisition_date >= startKey &&
         customer.acquisition_date < endKey
     ).length;
-
     if (newCustomers === 0) {
         return 0;
     }
-
     const spend = marketingMetrics
         .filter((metric) =>
             metric.period_start &&
@@ -79,7 +69,6 @@ export function computeCAC(
             metric.period_start.slice(0, 7) < endKey
         )
         .reduce((sum, metric) => sum + metric.spend, 0);
-
     return spend / newCustomers;
 }
 
@@ -92,12 +81,10 @@ export function computeLTV(
     if (grossMarginPercent <= 0) {
         return 0;
     }
-
     const rawLifetime = churnRate > 0 ? 1 / (churnRate / 100) : Infinity;
     const lifetime = !isFinite(rawLifetime) || isNaN(rawLifetime)
         ? maxLifetimeMonths
         : Math.min(rawLifetime, maxLifetimeMonths);
-
     return arpu * (grossMarginPercent / 100) * lifetime;
 }
 

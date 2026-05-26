@@ -8,7 +8,6 @@ import type {
     Receivable,
     Transaction,
 } from "@shared/types";
-
 import type { LastMonthData, MetricsDataUpdate, MetricsRuntime } from "./context";
 import { metricsDomainMethods } from "./domains";
 import { filterTxPure, getMonthStart, sumAmounts } from "./helpers";
@@ -42,25 +41,20 @@ export class MetricsCalculator {
     buildIndexes(): void {
         this._txByMonthKey = new Map();
         this._cashBalance = 0;
-
         for (const transaction of this.transactions) {
             const key = transaction.date.slice(0, 7);
             let monthTransactions = this._txByMonthKey.get(key);
-
             if (!monthTransactions) {
                 monthTransactions = [];
                 this._txByMonthKey.set(key, monthTransactions);
             }
-
             monthTransactions.push(transaction);
-
             if (transaction.payment_status === "completed") {
                 this._cashBalance += transaction.type === "income"
                     ? transaction.amount
                     : -transaction.amount;
             }
         }
-
         this._customerById = new Map(
             this.customers.map((customer) => [customer.id, customer]),
         );
@@ -72,19 +66,15 @@ export class MetricsCalculator {
     monthStart(monthsAgo = 0): Date {
         const ref = this._refDate;
         const epoch = `${ref.getFullYear()}-${ref.getMonth()}`;
-
         if (epoch !== this._monthStartEpoch) {
             this._monthStartEpoch = epoch;
             this._monthStartCache = new Map();
         }
-
         let date = this._monthStartCache.get(monthsAgo);
-
         if (!date) {
             date = getMonthStart(ref, monthsAgo);
             this._monthStartCache.set(monthsAgo, date);
         }
-
         return date;
     }
 
@@ -109,13 +99,11 @@ export class MetricsCalculator {
             this.monthStart(0),
             "expense",
         ).filter((transaction) => transaction.category === "Direct Costs");
-
         return sumAmounts(directCosts);
     }
 
     public updateData(data: MetricsDataUpdate) {
         this._lastMonthCache = null;
-
         if (data.transactions) {
             this.transactions = data.transactions;
         }
@@ -143,7 +131,6 @@ export class MetricsCalculator {
         if (data.refDate) {
             this._refDate = data.refDate;
         }
-
         this.buildIndexes();
     }
 }

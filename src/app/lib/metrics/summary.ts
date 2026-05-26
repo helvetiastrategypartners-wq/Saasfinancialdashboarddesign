@@ -16,7 +16,6 @@ export const summaryMetricsMethods = {
             this.calculateChurnRate(),
             60,
         );
-
         return {
             cash,
             monthlyRevenue: monthly.revenue,
@@ -60,7 +59,6 @@ export const summaryMetricsMethods = {
                     transaction.category === "Direct Costs"
                 ),
             );
-
             this._lastMonthCache = {
                 revenue,
                 expenses: sumAmounts(
@@ -72,7 +70,6 @@ export const summaryMetricsMethods = {
                     : 0,
             };
         }
-
         return this._lastMonthCache;
     },
 
@@ -93,24 +90,20 @@ export const summaryMetricsMethods = {
 
     calculateMRR(this: MetricsRuntime) {
         let mrr = 0;
-
         for (const customer of this.customers) {
             if (customer.status === "active") {
                 mrr += customer.monthly_revenue;
             }
         }
-
         return mrr;
     },
 
     calculatePaybackPeriod(this: MetricsRuntime) {
         const margin = this.calculateARPU() *
             (this.getLastMonthData().grossMarginPercent / 100);
-
         if (margin <= 0) {
             return this.calculateCAC() > 0 ? Infinity : 0;
         }
-
         return this.calculateCAC() / margin;
     },
 };

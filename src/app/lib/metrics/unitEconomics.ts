@@ -6,22 +6,18 @@ export const unitEconomicsMetricsMethods = {
         if (!channel) {
             return this.calculateCAC();
         }
-
         const startKey = this.monthStart(1).toISOString().slice(0, 7);
         const endKey = this.monthStart(0).toISOString().slice(0, 7);
         const normalizedChannel = channel.toLowerCase();
-
         let totalChannelCost = this.marketingMetrics
             .filter((metric) => {
                 const periodKey = metric.period_start?.slice(0, 7);
-
                 return metric.channel_id?.toLowerCase() === normalizedChannel &&
                     periodKey !== undefined &&
                     periodKey >= startKey &&
                     periodKey < endKey;
             })
             .reduce((sum, metric) => sum + metric.spend, 0);
-
         if (totalChannelCost === 0) {
             const channelExpenses = this.filterTx(
                 this.monthStart(1),
@@ -31,30 +27,24 @@ export const unitEconomicsMetricsMethods = {
                 transaction.linked_channel?.toLowerCase() === normalizedChannel ||
                 transaction.category?.toLowerCase().includes(normalizedChannel)
             );
-
             totalChannelCost = sumAmounts(channelExpenses);
         }
-
         const newCustomers = this.customers.filter((customer) =>
             customer.acquisition_channel === channel &&
             customer.acquisition_date >= startKey &&
             customer.acquisition_date < endKey
         );
-
         return newCustomers.length > 0 ? totalChannelCost / newCustomers.length : 0;
     },
 
     calculateClientMargin(this: MetricsRuntime, customerId: string): number {
         const customer = this._customerById.get(customerId);
-
         if (!customer) {
             return 0;
         }
-
         const revenue = this.getCustomerRevenueLastMonth(customerId);
         const cac = this.calculateCACByChannel(customer.acquisition_channel);
         const margin = this.getLastMonthData().grossMarginPercent;
-
         return revenue * (margin / 100) - cac;
     },
 
@@ -65,11 +55,9 @@ export const unitEconomicsMetricsMethods = {
         marginPercent: number;
     } {
         const product = this._productById.get(productId);
-
         if (!product) {
             return { revenue: 0, cost: 0, margin: 0, marginPercent: 0 };
         }
-
         const revenue = sumAmounts(
             this.filterTx(this.monthStart(1), this.monthStart(0), "income")
                 .filter((transaction) => transaction.linked_product === productId),
@@ -78,7 +66,6 @@ export const unitEconomicsMetricsMethods = {
         const cost = product.unit_cost * unitsSold;
         const margin = revenue - cost;
         const marginPercent = revenue > 0 ? (margin / revenue) * 100 : 0;
-
         return { revenue, cost, margin, marginPercent };
     },
 
@@ -90,7 +77,6 @@ export const unitEconomicsMetricsMethods = {
         const lastMonthKey = this.monthStart(1).toISOString().slice(0, 7);
         const txs = this._txByMonthKey.get(lastMonthKey) ?? [];
         let sum = 0;
-
         for (const transaction of txs) {
             if (
                 transaction.linked_customer === customerId &&
@@ -100,28 +86,22 @@ export const unitEconomicsMetricsMethods = {
                 sum += transaction.amount;
             }
         }
-
         return sum;
     },
 
     calculateRevenueConcentration(this: MetricsRuntime): Record<string, number> {
         const totalRevenue = this.getLastMonthData().revenue;
-
         if (totalRevenue <= 0) {
             return {};
         }
-
         const concentration: Record<string, number> = {};
-
         for (const customer of this.customers) {
             const realRevenue = this.getCustomerRevenueLastMonth(customer.id);
             const weight = (realRevenue / totalRevenue) * 100;
-
             if (weight > 0) {
                 concentration[customer.name] = weight;
             }
         }
-
         return concentration;
     },
 };

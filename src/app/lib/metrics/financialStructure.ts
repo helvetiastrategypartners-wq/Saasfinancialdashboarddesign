@@ -11,7 +11,6 @@ export const financialStructureMetricsMethods = {
             0,
         );
         let totalPayables = 0;
-
         for (const transaction of this.transactions) {
             if (
                 transaction.type === "expense" &&
@@ -21,7 +20,6 @@ export const financialStructureMetricsMethods = {
                 totalPayables += transaction.amount;
             }
         }
-
         return totalReceivables + totalInventory - totalPayables;
     },
 
@@ -31,7 +29,6 @@ export const financialStructureMetricsMethods = {
             0,
         );
         const dailyRevenue = this.getLastMonthData().revenue / 30;
-
         return dailyRevenue > 0 ? totalReceivables / dailyRevenue : 0;
     },
 
@@ -41,13 +38,11 @@ export const financialStructureMetricsMethods = {
             0,
         );
         const dailyCOGS = this.getDirectCOGS() / 30;
-
         return dailyCOGS > 0 ? totalInventoryValue / dailyCOGS : 0;
     },
 
     calculateDPO(this: MetricsRuntime): number {
         let directPayables = 0;
-
         for (const transaction of this.transactions) {
             if (
                 transaction.type === "expense" &&
@@ -57,7 +52,6 @@ export const financialStructureMetricsMethods = {
                 directPayables += transaction.amount;
             }
         }
-
         const dailyCOGS = this.getDirectCOGS() / 30;
         return dailyCOGS > 0 ? directPayables / dailyCOGS : 0;
     },

@@ -9,7 +9,6 @@ export const strategyMetricsMethods = {
         const hiringCost = params.hiringCost ?? 0;
         const newRevenue = current.monthlyRevenue * (1 + revenueChange / 100);
         const newBurnRate = current.burnRate * (1 + expenseChange / 100) + hiringCost;
-
         return {
             projectedRevenue: Math.round(newRevenue),
             projectedExpenses: Math.round(newBurnRate),
@@ -62,29 +61,23 @@ export const strategyMetricsMethods = {
         const revM2 = sumAmounts(
             this.filterTx(this.monthStart(2), this.monthStart(1), "income"),
         );
-
         return revM2 > 0 ? ((revM1 - revM2) / revM2) * 100 : 0;
     },
 
     calculateAverageGrowth(this: MetricsRuntime, months: number): number {
         const revenues: number[] = [];
-
         for (let i = months - 1; i >= 0; i--) {
             revenues.push(
                 sumAmounts(this.filterTx(this.monthStart(i + 1), this.monthStart(i), "income")),
             );
         }
-
         const rates: number[] = [];
-
         for (let i = 1; i < revenues.length; i++) {
             if (revenues[i - 1] === 0) {
                 continue;
             }
-
             rates.push(((revenues[i] - revenues[i - 1]) / revenues[i - 1]) * 100);
         }
-
         return rates.length > 0
             ? rates.reduce((a, b) => a + b, 0) / rates.length
             : 0;
@@ -104,7 +97,6 @@ export const strategyMetricsMethods = {
         if (this.goals.length === 0) {
             return 0;
         }
-
         return (this.goals.filter((goal) => goal.current_value >= goal.target_value).length /
             this.goals.length) * 100;
     },
@@ -119,7 +111,6 @@ export const strategyMetricsMethods = {
             actual: number;
             completion: number;
         }> = {};
-
         for (const goal of this.goals) {
             result[goal.metric_name] = {
                 target: goal.target_value,
@@ -129,7 +120,6 @@ export const strategyMetricsMethods = {
                     : 0,
             };
         }
-
         return result;
     },
 };

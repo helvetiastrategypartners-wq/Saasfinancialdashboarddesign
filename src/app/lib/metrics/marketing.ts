@@ -14,14 +14,12 @@ export const marketingMetricsMethods = {
     calculateChurnRate(this: MetricsRuntime): number {
         const lastMonth = this.monthStart(1);
         const thisMonth = this.monthStart(0);
-
         const churned = this.customers.filter((customer) =>
             customer.status === "churned" &&
             customer.churn_date &&
             new Date(customer.churn_date) >= lastMonth &&
             new Date(customer.churn_date) < thisMonth
         ).length;
-
         const activeAtStart = this.customers.filter((customer) =>
             customer.status === "active" ||
             (
@@ -30,7 +28,6 @@ export const marketingMetricsMethods = {
                 new Date(customer.churn_date) >= lastMonth
             )
         ).length;
-
         return activeAtStart === 0 ? 0 : (churned / activeAtStart) * 100;
     },
 
@@ -39,10 +36,8 @@ export const marketingMetricsMethods = {
         const monthlyMetrics = this.marketingMetrics.filter((metric) =>
             metric.period_start?.startsWith(lastMonthKey)
         );
-
         const leads = monthlyMetrics.reduce((sum, metric) => sum + (metric.leads ?? 0), 0);
         const acquired = monthlyMetrics.reduce((sum, metric) => sum + metric.customers_acquired, 0);
-
         return leads > 0 ? (acquired / leads) * 100 : 0;
     },
 
@@ -60,7 +55,6 @@ export const marketingMetricsMethods = {
         const newRunway = newBurn > 0
             ? Math.min(this.calculateCash() / newBurn, 999)
             : 999;
-
         return {
             impactOnBurn: monthlySalary,
             newBurn,
@@ -77,13 +71,11 @@ export const marketingMetricsMethods = {
         const monthlyMetrics = this.marketingMetrics.filter((metric) =>
             metric.period_start?.startsWith(lastMonthKey)
         );
-
         const totalSpend = monthlyMetrics.reduce((sum, metric) => sum + metric.spend, 0);
         const totalRevenue = monthlyMetrics.reduce(
             (sum, metric) => sum + metric.revenue_generated,
             0,
         );
-
         return totalSpend > 0
             ? ((totalRevenue - totalSpend) / totalSpend) * 100
             : 0;
