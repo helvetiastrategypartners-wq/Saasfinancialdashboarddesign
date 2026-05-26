@@ -8,6 +8,12 @@
     "dev": "vite",
     "preview": "vite preview",
     "test": "vitest run --coverage",
+    "test:runner": "node scripts/run-tests.mjs",
+    "test:all": "node scripts/run-tests.mjs all",
+    "test:check": "node scripts/run-tests.mjs check",
+    "test:coverage": "node scripts/run-tests.mjs coverage",
+    "test:finance": "node scripts/run-tests.mjs finance",
+    "test:dashboard": "node scripts/run-tests.mjs dashboard",
     "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "check": "npm run typecheck && npm run test && npm run build"
   },
