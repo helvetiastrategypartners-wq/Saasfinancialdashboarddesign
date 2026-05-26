@@ -1,16 +1,5 @@
-import type {
-    Transaction, Customer, MarketingMetrics, CalculatedMetrics,
-    Product, Debt, InventoryItem, Receivable, Goal,
-} from "@shared/types";
-import type { MetricsCalculator } from "./MetricsCalculator";
-import {
-    sumAmounts,
-    filterTxPure,
-    getMonthStart,
-    computeCAC,
-    computeLTV,
-    computeBurnRate,
-} from "./helpers";
+import type { MetricsRuntime } from "./context";
+import { computeCAC } from "./helpers";
 export const marketingMetricsMethods = {
 // ── MARKETING ─────────────────────────────────────────────────────────────
 
@@ -18,7 +7,7 @@ export const marketingMetricsMethods = {
  * Spend marketing M-1 / nouveaux clients M-1.
  * (FIX 2) Délègue à computeCAC() — testable directement.
  */
-calculateCAC(this: MetricsCalculator): number {
+calculateCAC(this: MetricsRuntime): number {
 return computeCAC(
     this.customers,
     this.marketingMetrics,
@@ -27,7 +16,7 @@ return computeCAC(
 );
 },
 
-calculateChurnRate(this: MetricsCalculator): number {
+calculateChurnRate(this: MetricsRuntime): number {
 const lastMonth = this.monthStart(1);
 const thisMonth = this.monthStart(0);
 const churned = this.customers.filter((c) =>
@@ -41,7 +30,7 @@ const activeAtStart = this.customers.filter((c) =>
 return activeAtStart === 0 ? 0 : (churned / activeAtStart) * 100;
 },
 
-calculateConversionRate(this: MetricsCalculator): number {
+calculateConversionRate(this: MetricsRuntime): number {
 const lastMonthKey = this.monthStart(1).toISOString().slice(0, 7);
 const monthlyMetrics = this.marketingMetrics.filter(m =>
     m.period_start?.startsWith(lastMonthKey)
@@ -51,13 +40,13 @@ const acquired = monthlyMetrics.reduce((sum, m) => sum + m.customers_acquired, 0
 return leads > 0 ? (acquired / leads) * 100 : 0;
 },
 
-calculateRetentionRate(this: MetricsCalculator): number {
+calculateRetentionRate(this: MetricsRuntime): number {
 return 100 - this.calculateChurnRate();
 },
 
 // ── KML & ROI ─────────────────────────────────────────────────────────────
 
-simulateHiringImpact(this: MetricsCalculator, monthlySalary: number, expectedRevenueBonus = 0) {
+simulateHiringImpact(this: MetricsRuntime, monthlySalary: number, expectedRevenueBonus = 0) {
 const currentBurn = this.calculateBurnRate();
 const newBurn = currentBurn + monthlySalary;
 const newRunway = newBurn > 0
@@ -75,7 +64,7 @@ return {
 },
 
 /** (Revenue généré − Spend) / Spend × 100 — Focus Mois Dernier (M-1) */
-calculateMarketingROI(this: MetricsCalculator): number {
+calculateMarketingROI(this: MetricsRuntime): number {
 const lastMonthKey = this.monthStart(1).toISOString().slice(0, 7);
 const monthlyMetrics = this.marketingMetrics.filter(m =>
     m.period_start?.startsWith(lastMonthKey)

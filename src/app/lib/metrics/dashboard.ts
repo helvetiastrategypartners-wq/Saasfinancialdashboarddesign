@@ -1,14 +1,6 @@
-import type {
-    Transaction, Customer, MarketingMetrics, CalculatedMetrics,
-    Product, Debt, InventoryItem, Receivable, Goal,
-} from "@shared/types";
-import type { MetricsCalculator } from "./MetricsCalculator";
+import type { MetricsRuntime } from "./context";
 import {
-    sumAmounts,
-    filterTxPure,
     getMonthStart,
-    computeCAC,
-    computeLTV,
     computeBurnRate,
 } from "./helpers";
 export const dashboardMetricsMethods = {
@@ -18,12 +10,12 @@ export const dashboardMetricsMethods = {
  * (FIX 1) O(1) — lecture du solde cumulatif maintenu en delta.
  * Plus de full scan sur this.transactions.
  */
-calculateCash(this: MetricsCalculator): number {
+calculateCash(this: MetricsRuntime): number {
 return this._cashBalance;
 },
 
 /** Moyenne des dépenses sur les 3 derniers mois complets. */
-calculateBurnRate(this: MetricsCalculator): number {
+calculateBurnRate(this: MetricsRuntime): number {
 return computeBurnRate(
     this._txByMonthKey,
     this.monthStart(3).toISOString().slice(0, 7),
@@ -33,12 +25,12 @@ return computeBurnRate(
 },
 
 /** Trésorerie / burn rate. Retourne 999 si burn ≤ 0. */
-calculateRunway(this: MetricsCalculator): number {
+calculateRunway(this: MetricsRuntime): number {
 const burn = this.calculateBurnRate();
 return burn <= 0 ? 999 : this.calculateCash() / burn;
 },
 
-getMonthlyNetCashflow(this: MetricsCalculator, months: number): Array<{ month: string; cash: number }> {
+getMonthlyNetCashflow(this: MetricsRuntime, months: number): Array<{ month: string; cash: number }> {
 const ref = this._refDate;
 return Array.from({ length: months }, (_, i) => {
     const date = getMonthStart(ref, months - 1 - i);
@@ -56,7 +48,7 @@ return Array.from({ length: months }, (_, i) => {
 });
 },
 
-getMonthlyCashTrend(this: MetricsCalculator, months: number): Array<{
+getMonthlyCashTrend(this: MetricsRuntime, months: number): Array<{
 month: string;
 netFlow: number;
 variationPercent: number | null;

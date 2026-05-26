@@ -1,21 +1,13 @@
-import type {
-    Transaction, Customer, MarketingMetrics, CalculatedMetrics,
-    Product, Debt, InventoryItem, Receivable, Goal,
-} from "@shared/types";
-import type { MetricsCalculator } from "./MetricsCalculator";
+import type { MetricsRuntime } from "./context";
 import {
     sumAmounts,
-    filterTxPure,
     getMonthStart,
-    computeCAC,
-    computeLTV,
-    computeBurnRate,
 } from "./helpers";
 export const financeMetricsMethods = {
 // ── FINANCE ───────────────────────────────────────────────────────────────
 
 /** Marge brute M-1 moins les charges opex (hors coûts directs). */
-calculateEBITDA(this: MetricsCalculator): number {
+calculateEBITDA(this: MetricsRuntime): number {
 const opex = sumAmounts(
     this.filterTx(this.monthStart(1), this.monthStart(0), "expense")
         .filter((t) => t.category !== "Direct Costs")
@@ -23,11 +15,11 @@ const opex = sumAmounts(
 return this.getLastMonthData().grossMargin - opex;
 },
 
-calculateTotalDebt(this: MetricsCalculator): number {
+calculateTotalDebt(this: MetricsRuntime): number {
 return this.debts.reduce((s, d) => s + d.remaining_amount, 0);
 },
 
-getRevenueByChannel(this: MetricsCalculator): Record<string, number> {
+getRevenueByChannel(this: MetricsRuntime): Record<string, number> {
 const result: Record<string, number> = {};
 this.filterTx(this.monthStart(1), this.monthStart(0), "income").forEach((t) => {
     const channel = t.linked_channel || "Unknown";
@@ -37,7 +29,7 @@ return result;
 },
 
 /** Spend / clients acquis, par canal marketing (Mois dernier uniquement) */
-getCACByChannel(this: MetricsCalculator): Record<string, number> {
+getCACByChannel(this: MetricsRuntime): Record<string, number> {
 const byChannel: Record<string, { spend: number; customers: number }> = {};
 const ref = this._refDate;
 const firstDayLastMonth = getMonthStart(ref, 1);
@@ -64,7 +56,7 @@ Object.entries(byChannel).forEach(([channel, data]) => {
 return result;
 },
 
-getExpensesByCategory(this: MetricsCalculator): Record<string, number> {
+getExpensesByCategory(this: MetricsRuntime): Record<string, number> {
 const result: Record<string, number> = {};
 this.filterTx(this.monthStart(1), this.monthStart(0), "expense").forEach((t) => {
     const category = t.category || "Uncategorized";
@@ -74,12 +66,12 @@ return result;
 },
 
 /** Revenus sur une période custom (KML). */
-getRevenueForPeriod(this: MetricsCalculator, start: Date, end: Date): number {
+getRevenueForPeriod(this: MetricsRuntime, start: Date, end: Date): number {
 return sumAmounts(this.filterTx(start, end, "income"));
 },
 
 /** Dépenses sur une période custom (KML). */
-getExpensesForPeriod(this: MetricsCalculator, start: Date, end: Date): number {
+getExpensesForPeriod(this: MetricsRuntime, start: Date, end: Date): number {
 return sumAmounts(this.filterTx(start, end, "expense"));
 },
 };

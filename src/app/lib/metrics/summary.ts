@@ -1,20 +1,13 @@
-import type {
-    Transaction, Customer, MarketingMetrics, CalculatedMetrics,
-    Product, Debt, InventoryItem, Receivable, Goal,
-} from "@shared/types";
-import type { MetricsCalculator } from "./MetricsCalculator";
+import type { CalculatedMetrics } from "@shared/types";
+import type { MetricsRuntime } from "./context";
 import {
     sumAmounts,
-    filterTxPure,
-    getMonthStart,
-    computeCAC,
     computeLTV,
-    computeBurnRate,
 } from "./helpers";
 export const summaryMetricsMethods = {
 // ── CALCUL GLOBAL ─────────────────────────────────────────────────────────
 
-calculateAll(this: MetricsCalculator): CalculatedMetrics {
+calculateAll(this: MetricsRuntime): CalculatedMetrics {
 const monthly  = this.getLastMonthData();
 const cash     = this.calculateCash();
 const burnRate = this.calculateBurnRate();
@@ -60,7 +53,7 @@ return {
 },
 
 /** Données M-1 mémoïsées — invalidées par updateData(). */
-getLastMonthData(this: MetricsCalculator) {
+getLastMonthData(this: MetricsRuntime) {
 if (!this._lastMonthCache) {
     const t       = this.filterTx(this.monthStart(1), this.monthStart(0));
     const revenue = sumAmounts(t.filter((x) => x.type === "income"));
@@ -77,19 +70,19 @@ if (!this._lastMonthCache) {
 return this._lastMonthCache;
 },
 
-getActiveCustomersCount(this: MetricsCalculator) {
+getActiveCustomersCount(this: MetricsRuntime) {
 return this.customers.filter((c) => c.status === "active").length;
 },
 
-getNewCustomersThisMonth(this: MetricsCalculator) {
+getNewCustomersThisMonth(this: MetricsRuntime) {
 return this.customers.filter((c) => new Date(c.acquisition_date) >= this.monthStart(0)).length;
 },
 
-calculateARPU(this: MetricsCalculator) {
+calculateARPU(this: MetricsRuntime) {
 const active = this.getActiveCustomersCount();
 return active > 0 ? this.getLastMonthData().revenue / active : 0;
 },
-calculateMRR(this: MetricsCalculator) {
+calculateMRR(this: MetricsRuntime) {
 let mrr = 0;
 for (const c of this.customers) {
     if (c.status === "active") mrr += c.monthly_revenue;
@@ -97,7 +90,7 @@ for (const c of this.customers) {
 return mrr;
 },
 
-calculatePaybackPeriod(this: MetricsCalculator) {
+calculatePaybackPeriod(this: MetricsRuntime) {
 const margin = this.calculateARPU() * (this.getLastMonthData().grossMarginPercent / 100);
 if (margin <= 0) return this.calculateCAC() > 0 ? Infinity : 0;
 return this.calculateCAC() / margin;

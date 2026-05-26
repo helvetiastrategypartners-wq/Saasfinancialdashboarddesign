@@ -1,20 +1,10 @@
-import type {
-    Transaction, Customer, MarketingMetrics, CalculatedMetrics,
-    Product, Debt, InventoryItem, Receivable, Goal,
-} from "@shared/types";
-import type { MetricsCalculator } from "./MetricsCalculator";
-import {
-    sumAmounts,
-    filterTxPure,
-    getMonthStart,
-    computeCAC,
-    computeLTV,
-    computeBurnRate,
-} from "./helpers";
+import type { Customer } from "@shared/types";
+import type { MetricsRuntime } from "./context";
+import { filterTxPure } from "./helpers";
 export const analyticsMetricsMethods = {
 // ── ADVANCED ANALYTICS ───────────────────────────────────────────────────
 
-getCohortAnalysis(this: MetricsCalculator): Record<string, number[]> {
+getCohortAnalysis(this: MetricsRuntime): Record<string, number[]> {
 const cohorts: Record<string, Customer[]> = {};
 for (const c of this.customers) {
     const key = c.acquisition_date.slice(0, 7);
@@ -53,7 +43,7 @@ return result;
  * Agrège les revenus des transactions par mois d'acquisition du client.
  * Retourne une matrice cohorte × mois pour visualiser la rétention revenus.
  */
-getCohortRevenueAnalysis(this: MetricsCalculator): Array<{
+getCohortRevenueAnalysis(this: MetricsRuntime): Array<{
 cohort: string;
 label:  string;
 size:   number;
