@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Economie unitaire : liens client/produit/canal utilises dans les marges.
 describe("MetricsCalculator.calculateClientMargin", () => {
     it("retourne 0 si le client n'existe pas", () => {
         expect(makeCalc().calculateClientMargin("unknown")).toBe(0);

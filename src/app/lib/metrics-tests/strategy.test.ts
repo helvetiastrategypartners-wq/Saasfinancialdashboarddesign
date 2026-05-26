@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Strategie et objectifs : projection, break-even et evolution du revenu.
 describe("MetricsCalculator.simulateScenario", () => {
     it("projette revenus, dépenses et runway", () => {
         const txs = [

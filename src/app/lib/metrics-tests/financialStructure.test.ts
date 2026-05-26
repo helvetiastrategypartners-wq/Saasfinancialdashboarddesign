@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Structure financiere : BFR, cycle de conversion cash et dette.
 describe("MetricsCalculator — fonds de roulement", () => {
     const txs = [
         makeTx({ date: "2025-02-10", type: "income",  amount: 6000 }),

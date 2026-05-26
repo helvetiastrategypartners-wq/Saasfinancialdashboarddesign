@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Agregations finance : regroupements par canal/categorie et periodes custom.
 describe("MetricsCalculator.getRevenueByChannel", () => {
     it("regroupe les revenus par canal", () => {
         const txs = [

@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Helpers purs : conventions de filtrage, dates UTC et gardes anti-division par zero.
 describe("sumAmounts", () => {
     it("additionne les montants", () => {
         expect(sumAmounts([makeTx({ amount: 100 }), makeTx({ amount: 250 })])).toBe(350);

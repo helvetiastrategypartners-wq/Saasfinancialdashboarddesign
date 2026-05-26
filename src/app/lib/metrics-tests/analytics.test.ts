@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Analyses cohortes : clients par mois d'acquisition puis revenus mensuels rattaches.
 describe("MetricsCalculator.getCohortAnalysis", () => {
     it("retourne un tableau de taux de rétention par cohorte", () => {
         const customers = [

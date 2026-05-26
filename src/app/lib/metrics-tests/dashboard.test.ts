@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Indicateurs dashboard : fenetres temporelles, solde cash et flux pending.
 describe("MetricsCalculator — calculateCash (FIX 1)", () => {
     it("retourne le solde correct sans full scan", () => {
         const txs: Transaction[] = [

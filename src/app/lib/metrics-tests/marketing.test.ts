@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Marketing et retention : gardes anti-division par zero et seuils de simulation.
 describe("MetricsCalculator.calculateConversionRate", () => {
     it("calcule le taux de conversion leads → clients", () => {
         const mktg = [makeMktg({ period_start: "2025-02-01", leads: 100, customers_acquired: 10 })];

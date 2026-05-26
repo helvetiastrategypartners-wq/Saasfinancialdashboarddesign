@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Insights automatiques : chaque bloc force un seuil metier precis.
 describe("MetricsCalculator.getCashRiskStatus", () => {
     it("high si runway < 3", () => {
         // cash=100, burn=50 → runway=2

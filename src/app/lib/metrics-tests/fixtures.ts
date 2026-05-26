@@ -12,6 +12,7 @@ import type {
 
 export const REF_DATE = new Date("2025-03-15T12:00:00Z");
 
+// Factories volontairement petites : chaque test surcharge seulement les champs utiles a son scenario.
 export function makeTx(overrides: Partial<Transaction> = {}): Transaction {
     return {
         id: "tx1",
@@ -101,6 +102,7 @@ export function makeGoal(overrides: Partial<Goal> = {}): Goal {
     } as Goal;
 }
 
+// Point d'entree commun des tests : garde une date stable pour les calculs M-1/M-2.
 export function makeCalc(overrides: {
     transactions?: Transaction[];
     customers?: Customer[];
@@ -124,5 +126,4 @@ export function makeCalc(overrides: {
         overrides.refDate ?? REF_DATE,
     );
 }
-
 

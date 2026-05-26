@@ -23,6 +23,7 @@ import {
 } from "./fixtures";
 import type { Transaction, MarketingMetrics } from "@shared/types";
 
+// Tests de synthese : dernieres branches transverses de calculateAll/updateData.
 describe("MetricsCalculator.calculateAll — branches restantes", () => {
     it("runway = 999 quand burnRate = 0", () => {
         expect(makeCalc().calculateAll().runway).toBe(999);
