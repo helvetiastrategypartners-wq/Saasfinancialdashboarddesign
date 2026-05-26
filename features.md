@@ -11,7 +11,25 @@
   - Prévisions (`Forecast`)
   - Rapports
   - Paramètres
+- Pages sécurisées disponibles :
+  - Login
+  - Changement de mot de passe forcé
+  - Super Admin
 - `Layout` global avec barre de navigation et zone de contenu.
+
+## Authentification et sessions
+- Authentification via Supabase Auth.
+- Contexte global `AuthProvider` avec session, utilisateur, login, logout et mise à jour du mot de passe.
+- Page de connexion dédiée avec affichage/masquage du mot de passe.
+- Redirection automatique des utilisateurs non connectés vers `/login`.
+- Redirection des comptes Super Admin vers `/super-admin`.
+- Parcours de mot de passe temporaire avec changement forcé au premier login via `must_change_password`.
+- Validation de complexité mot de passe :
+  - 12 caractères minimum
+  - Minuscule
+  - Majuscule
+  - Chiffre
+  - Caractère spécial
 
 ## Dashboard
 - Vue d'ensemble financière multi-KPI.
@@ -177,6 +195,42 @@
 - Préférences :
   - Représentation de l'interface et préférences utilisateur
 
+## Super Admin
+- Espace Super Admin isolé du dashboard financier.
+- Création d'une entreprise et du premier compte utilisateur associé.
+- Création de compte via serveur Express avec `SUPABASE_SERVICE_ROLE_KEY` uniquement côté backend.
+- Mot de passe temporaire généré/saisi par la SA, puis changement forcé par l'utilisateur.
+- Liste des comptes entreprises avec :
+  - Email
+  - Nom
+  - Entreprise
+  - Company ID
+  - Statut actif/bloqué
+  - Dernière connexion
+  - Indicateur de mot de passe à changer
+- Actions de gestion :
+  - Bloquer un compte
+  - Débloquer un compte
+  - Supprimer l'accès utilisateur
+  - Réinitialiser le mot de passe temporaire
+- Confirmations de sécurité par recopie de l'adresse email avant action sensible.
+- Protection contre l'auto-blocage et l'auto-suppression du compte SA.
+
+## Sécurité et privacy
+- Variables d'environnement sensibles exclues du versioning.
+- Clé Supabase publishable côté frontend uniquement.
+- Clé Supabase service role limitée au serveur Express.
+- Middleware d'autorisation Super Admin avec vérification du JWT Supabase et whitelist `SUPER_ADMIN_EMAILS`.
+- CORS whitelist via `ADMIN_CORS_ORIGINS`.
+- Rate limiting en mémoire sur les routes `/api/admin/*` et `/api/export`.
+- Journalisation applicative prévue pour les actions sensibles SA via `admin_audit_logs`.
+- Scripts Supabase privacy dans `supabase/privacy-hardening.sql` :
+  - `admin_audit_logs`
+  - `privacy_requests`
+  - `data_retention_policies`
+- Documentation privacy dans `docs/privacy-readiness.md`, base nLPD suisse + RGPD si applicable.
+- Les mots de passe, tokens, hash de mots de passe et secrets API ne sont pas journalisés.
+
 ## Fonctionnalités globales et utilitaires
 - Thème global (`ThemeProvider`) avec bascule `dark` / `light`.
 - Sélecteur de devise (`CurrencyProvider`) supportant CHF, EUR, USD.
@@ -196,3 +250,4 @@
 - Architecture orientée `features` + `components` + `contexts`.
 - Chargement paresseux des pages et sections critiques.
 - Données et logique métier centralisées via `MetricsContext`, `CurrencyContext`, `DateRangeContext`, `ThemeContext`.
+- Serveur Express optionnel pour exports et opérations Super Admin sécurisées.
