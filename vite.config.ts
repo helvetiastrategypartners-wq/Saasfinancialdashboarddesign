@@ -94,7 +94,7 @@ export default defineConfig(({ mode }) => {
       coverage: {
         provider: 'v8',
         reporter: ['text'],
-        include: ['src/app/lib/metrics.ts'],
+        include: ['src/app/lib/metrics.ts', 'src/app/lib/metrics/**/*.ts'],
         thresholds: {
           branches: 100,
           functions: 100,
