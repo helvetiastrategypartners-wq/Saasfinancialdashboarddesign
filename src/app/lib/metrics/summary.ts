@@ -53,6 +53,7 @@ export const summaryMetricsMethods = {
             const revenue = sumAmounts(
                 transactions.filter((transaction) => transaction.type === "income"),
             );
+            // Direct Costs define gross margin; other expenses stay in EBITDA/opex.
             const costs = sumAmounts(
                 transactions.filter((transaction) =>
                     transaction.type === "expense" &&

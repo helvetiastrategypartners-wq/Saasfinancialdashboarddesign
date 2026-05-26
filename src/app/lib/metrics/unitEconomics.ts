@@ -19,6 +19,7 @@ export const unitEconomicsMetricsMethods = {
             })
             .reduce((sum, metric) => sum + metric.spend, 0);
         if (totalChannelCost === 0) {
+            // Manual expense imports may carry channel info even without marketing metrics.
             const channelExpenses = this.filterTx(
                 this.monthStart(1),
                 this.monthStart(0),

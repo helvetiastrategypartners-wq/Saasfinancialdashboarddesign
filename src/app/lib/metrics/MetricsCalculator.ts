@@ -14,11 +14,13 @@ import { filterTxPure, getMonthStart, sumAmounts } from "./helpers";
 
 export class MetricsCalculator {
     _lastMonthCache: LastMonthData | null = null;
+    // Indexes rebuilt together so domain modules can stay calculation-focused.
     _txByMonthKey: Map<string, Transaction[]> = new Map();
     _customerById: Map<string, Customer> = new Map();
     _productById: Map<string, Product> = new Map();
 
     _refDate: Date;
+    // Month starts are reused heavily across dashboard calculations.
     _monthStartEpoch = "";
     _monthStartCache: Map<number, Date> = new Map();
     _cashBalance = 0;
@@ -49,6 +51,7 @@ export class MetricsCalculator {
                 this._txByMonthKey.set(key, monthTransactions);
             }
             monthTransactions.push(transaction);
+            // Keep cash O(1) for repeated dashboard reads.
             if (transaction.payment_status === "completed") {
                 this._cashBalance += transaction.type === "income"
                     ? transaction.amount
@@ -103,6 +106,7 @@ export class MetricsCalculator {
     }
 
     public updateData(data: MetricsDataUpdate) {
+        // Any dataset change can alter derived monthly metrics.
         this._lastMonthCache = null;
         if (data.transactions) {
             this.transactions = data.transactions;

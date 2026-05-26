@@ -87,6 +87,7 @@ export interface MetricsCalculatorApi {
 }
 
 export interface MetricsRuntime extends MetricsCalculatorApi {
+    // Runtime shape used by domain method modules attached to MetricsCalculator.
     transactions: Transaction[];
     customers: Customer[];
     marketingMetrics: MarketingMetrics[];

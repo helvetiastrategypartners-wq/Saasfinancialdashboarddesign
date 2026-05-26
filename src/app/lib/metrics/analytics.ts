@@ -16,6 +16,7 @@ export const analyticsMetricsMethods = {
         const ref = this._refDate;
         const result: Record<string, number[]> = {};
         for (const [monthKey, cohortCustomers] of Object.entries(cohorts)) {
+            // Cohort offset is computed from calendar months, not day differences.
             const [year, month] = monthKey.split("-").map(Number);
             const monthsElapsed = (ref.getFullYear() - year) * 12 +
                 (ref.getMonth() - (month - 1));
@@ -75,6 +76,7 @@ export const analyticsMetricsMethods = {
                 const endKey = new Date(Date.UTC(year, (month - 1) + m + 1, 1))
                     .toISOString()
                     .slice(0, 7);
+                // Reuse the month index to avoid scanning unrelated transactions.
                 const txs = filterTxPure(this._txByMonthKey, startKey, endKey, "income");
                 const revenue = txs
                     .filter((transaction) =>
