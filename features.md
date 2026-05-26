@@ -1,72 +1,167 @@
-# Fonctionnalités du projet SaaS Financial Dashboard Design
+# Fonctionnalités du projet SaaS Financial Dashboard Design — État réel HSPOS
 
-Ce document sert d'inventaire fonctionnel et technique du dashboard financier HSP.
+Dernière mise à jour : 26 mai 2026
 
-## Vue d'ensemble
+Ce document consolide l'état Notion avec l'état réel du code présent dans le projet.
 
-L'application est une SPA React/Vite avec routage client, dashboard financier, modules métier, authentification Supabase et espace Super Admin.
+## Légende
 
-Parcours principaux :
+- ✅ Fait : présent dans le code et fonctionnel au niveau attendu pour le MVP.
+- 🔄 Partiel : présent, mais incomplet, simulé ou dépendant d'une configuration externe.
+- ⏳ À faire : non implémenté dans le repo.
+- ⚠️ À vérifier : dépend d'un état Supabase/déploiement non entièrement versionné dans le repo.
 
-- utilisateur entreprise : connexion, consultation et gestion des chiffres de son entreprise ;
-- super-admin : création et gestion des comptes entreprises ;
-- administration sécurité : audit, rate limiting, privacy readiness et durcissement Supabase.
+---
 
-## Navigation
+## Synthèse
 
-Pages métier :
+### ✅ Fait
 
-- Dashboard
-- Transactions
-- Factures
-- Clients
-- Marketing & Growth
-- Prévisions
-- Rapports
-- Paramètres
+- Dashboard financier principal.
+- Transactions avec CRUD Supabase/fallback local.
+- Clients avec CRUD Supabase/fallback local.
+- Factures simulées à partir des transactions de dépense.
+- Marketing & Growth avec CRUD des métriques marketing internes.
+- Prévisions / Strategy Module.
+- Rapports financiers.
+- Paramètres UI.
+- Auth Supabase côté front.
+- Login, logout et changement forcé du mot de passe temporaire.
+- Espace Super Admin séparé du dashboard.
+- Création, liste, blocage, déblocage, suppression et reset mot de passe des comptes entreprise via API Express.
+- Middleware Super Admin Express avec JWT Supabase + whitelist `SUPER_ADMIN_EMAILS`.
+- CORS whitelist côté serveur admin.
+- Rate limiting en mémoire sur `/api/admin/*` et `/api/export`.
+- Audit logs applicatifs pour actions Super Admin, dès que `admin_audit_logs` existe en base.
+- Exports PDF/CSV via serveur Express.
+- Documentation privacy et SQL de durcissement `supabase/privacy-hardening.sql`.
+- Coverage tests unitaires métier maintenue à 100% sur `metrics.test.ts`.
 
-Pages sécurisées :
+### 🔄 Partiel
 
-- Login
-- Changement de mot de passe forcé
-- Super Admin
+- Connexion Supabase réelle limitée aux tables `transactions`, `customers`, `marketing_metrics` côté dashboard.
+- RLS/policies Supabase partiellement versionnées/documentées : plusieurs corrections ont été faites via SQL Editor, mais tout n'est pas encore matérialisé en migration complète.
+- Settings : interface complète, mais la plupart des actions sont simulées côté UI.
+- Privacy/nLPD/RGPD : base technique et documentation présentes, validation juridique/déploiement à faire.
+- Factures : module UI fonctionnel, mais pas encore de vraie table `invoices` branchée côté app.
+- Exports : serveur présent, production à valider derrière HTTPS/proxy.
 
-Le `Layout` global fournit la navigation latérale, la zone de contenu et les contrôles de thème/session. Le `SuperAdminLayout` isole l'espace SA du dashboard financier.
+### ⏳ À faire
+
+- Parseurs backend `GoogleAdsParser` et `MetaAdsParser`.
+- Intégration réelle Google Ads / Meta Ads.
+- Chiffrement AES-256 des futures clés API marketing au repos.
+- MFA réel, au minimum pour les comptes Super Admin.
+- Reset password autonome sécurisé hors parcours Super Admin.
+- HTTPS/TLS côté déploiement Express.
+- Migration Supabase complète pour figer RLS, policies, vues et tables privacy.
+- Tests E2E/QA sécurité sur les parcours Auth/SA.
+
+---
+
+# Détail Par Module
+
+## Navigation Et Routage
+
+### ✅ Fait
+
+- Routes métier protégées :
+  - `/`
+  - `/transactions`
+  - `/invoices`
+  - `/clients`
+  - `/marketing`
+  - `/forecast`
+  - `/reports`
+  - `/settings`
+- Routes auth/admin :
+  - `/login`
+  - `/change-password`
+  - `/super-admin`
+- `ProtectedLayout` pour les utilisateurs entreprise.
+- `ProtectedSuperAdminLayout` pour les comptes SA.
+- Redirection des utilisateurs non connectés vers `/login`.
+- Redirection automatique des SA vers `/super-admin`.
+- Isolation du `MetricsProvider` hors espace Super Admin.
+
+---
 
 ## Authentification
 
-- Authentification via Supabase Auth.
-- Contexte global `AuthProvider` avec session, utilisateur, login, logout et mise à jour du mot de passe.
-- Page de connexion avec affichage/masquage du mot de passe.
-- Redirection des utilisateurs non connectés vers `/login`.
-- Redirection des comptes Super Admin vers `/super-admin`.
-- Mot de passe temporaire avec changement forcé au premier login via `must_change_password`.
-- Validation de complexité :
-  - 12 caractères minimum
-  - minuscule
-  - majuscule
-  - chiffre
-  - caractère spécial
+### ✅ Fait
+
+- `AuthContext` avec session, utilisateur, login, logout et `updatePassword`.
+- Authentification via `supabase.auth.signInWithPassword`.
+- Page Login avec affichage/masquage du mot de passe.
+- Page de changement de mot de passe forcé.
+- Complexité mot de passe appliquée côté UI et côté endpoint admin :
+  - 12 caractères minimum ;
+  - minuscule ;
+  - majuscule ;
+  - chiffre ;
+  - caractère spécial.
+- `must_change_password` remis à `false` dans `profiles` après changement.
+- Mots de passe hachés et gérés par Supabase Auth, jamais stockés dans les tables applicatives.
+
+### 🔄 Partiel
+
+- La session est celle de Supabase SPA côté navigateur, pas encore un modèle cookie `HttpOnly/Secure` via backend.
+- Complexité Supabase Auth à vérifier/configurer aussi côté dashboard Supabase pour défense en profondeur.
+
+### ⏳ À faire
+
+- MFA réel.
+- Reset password autonome sécurisé.
+- Politique de durée de session/JWT à valider côté Supabase.
+
+---
 
 ## Super Admin
 
-- Espace Super Admin isolé du dashboard financier.
-- Création d'une entreprise et du premier compte utilisateur associé.
-- Création des comptes via serveur Express avec `SUPABASE_SERVICE_ROLE_KEY` uniquement côté backend.
-- Mot de passe temporaire saisi par la SA, puis changement forcé par l'utilisateur.
-- Liste des comptes entreprises avec email, nom, entreprise, `company_id`, statut, dernière connexion et indicateur de mot de passe à changer.
-- Actions de gestion :
-  - bloquer un compte ;
-  - débloquer un compte ;
-  - supprimer l'accès utilisateur ;
-  - réinitialiser le mot de passe temporaire.
-- Confirmation par recopie de l'adresse email avant action sensible.
-- Protection contre l'auto-blocage et l'auto-suppression du compte SA.
+### ✅ Fait
+
+- Page `/super-admin`.
+- Layout dédié `SuperAdminLayout`.
+- API Express protégée par `requireSuperAdmin()`.
+- Vérification Bearer JWT via Supabase.
+- Whitelist `SUPER_ADMIN_EMAILS`.
+- `SUPABASE_SERVICE_ROLE_KEY` uniquement côté serveur.
+- Healthcheck admin : `/api/admin/health`.
+- Liste des comptes Supabase Auth enrichie avec `profiles` et `companies`.
+- Création entreprise + utilisateur Auth + profil.
+- Mot de passe temporaire, puis changement forcé par l'utilisateur.
+- Blocage/déblocage via `ban_duration`.
+- Reset mot de passe temporaire avec `must_change_password`.
+- Suppression d'accès : suppression Auth user + profile, sans supprimer l'entreprise ni ses chiffres.
+- Protection contre l'auto-blocage et l'auto-suppression.
+- Popup de confirmation par recopie de l'adresse email pour actions sensibles.
+- Audit logs sur :
+  - création ;
+  - échec de création ;
+  - blocage ;
+  - déblocage ;
+  - reset mot de passe ;
+  - suppression.
+
+### 🔄 Partiel
+
+- Audit logs opérationnels seulement après exécution de `supabase/privacy-hardening.sql`.
+- Rate limiting en mémoire : suffisant pour dev/MVP, mais pas distribué en production multi-instance.
+
+### ⏳ À faire
+
+- Page de consultation des `admin_audit_logs`.
+- Gestion de rôles plus fine que whitelist email si nécessaire.
+- Tests E2E des actions sensibles.
+
+---
 
 ## Dashboard
 
-- Vue d'ensemble financière multi-KPI.
-- Cartes KPI :
+### ✅ Fait
+
+- Page `DashboardPage.tsx`.
+- KPI cards :
   - cash disponible ;
   - revenus ;
   - dépenses ;
@@ -75,118 +170,337 @@ Le `Layout` global fournit la navigation latérale, la zone de contenu et les co
   - runway estimé.
 - Graphiques :
   - revenus vs dépenses ;
-  - répartition des dépenses par catégorie ;
-  - cashflow en barres.
-- Sélecteur de période et comparaison via `DateRangeBar`.
-- Export de rapport via `DeferredExportButton`.
-- Transactions récentes et grille de synthèse.
+  - répartition des dépenses ;
+  - cashflow.
+- Transactions récentes.
+- Grille de synthèse.
+- Sélecteur de période/devise via composants globaux.
+- Export différé via `DeferredExportButton`.
+- Données alimentées par `MetricsContext`.
+
+### 🔄 Partiel
+
+- Les calculs fonctionnent sur données mockées ou Supabase selon disponibilité.
+- Pas encore de filtre company dynamique côté utilisateur final : `company_id` actif vient de `getActiveCompanyId()`.
+
+---
 
 ## Transactions
 
-- Tableau des transactions avec recherche par libellé ou catégorie.
+### ✅ Fait
+
+- Page `TransactionsPage.tsx`.
+- Hook `useTransactionsData`.
+- CRUD :
+  - ajout ;
+  - modification ;
+  - suppression.
+- Synchronisation Supabase sur table `transactions`.
+- Fallback local/mock si Supabase indisponible ou vide.
+- Recherche par libellé/catégorie.
 - Filtres par type et catégorie.
-- Statistiques dynamiques : revenus filtrés, dépenses filtrées, différence.
-- CRUD transactionnel : ajout, modification, suppression.
-- Formulaire transaction : type, statut, libellé, catégorie, montant, date, récurrence.
-- Notifications toast pour les actions réussies.
+- Tri chronologique décroissant.
+- Cartes de synthèse : revenus, dépenses, différence.
+- Formulaire transaction : type, label, catégorie, montant, date, statut, récurrence.
+- Rollback UI en cas d'erreur mutation Supabase.
 
-## Factures
+### 🔄 Partiel
 
-- Gestion des factures fournisseurs.
+- Pas encore de filtre statut dans le hook, contrairement à certaines notes Notion.
+- Validation formulaire limitée côté front.
+
+---
+
+## Factures / Invoices
+
+### ✅ Fait
+
+- Page `InvoicesPage.tsx`.
+- Hook `useInvoicesData`.
+- Factures dérivées des transactions `expense`.
+- CRUD via mutations transactions :
+  - ajout ;
+  - modification ;
+  - suppression ;
+  - marquage comme payée.
 - Recherche par fournisseur, numéro ou catégorie.
-- Filtre par statut : émise, payée, remboursement.
-- Statistiques : montant payé, montant en attente, remboursements.
-- Marquage comme payée.
-- CRUD factures : ajout, modification, suppression.
-- Simulation d'extraction IA via bouton `AI Extraction`.
+- Filtres de statut :
+  - Tous ;
+  - Payée ;
+  - Émise ;
+  - Remboursement.
+- Simulation `AI Extraction` en 4 étapes.
+- Numéro de facture généré depuis l'id transaction.
+- Synthèse montants payés, en attente, remboursements.
+
+### 🔄 Partiel
+
+- Pas de table `invoices` réellement branchée dans l'app.
+- Le module représente aujourd'hui plutôt des factures fournisseurs/dépenses que des factures clients/créances.
+
+### ⏳ À faire
+
+- Décider produit : factures fournisseurs, factures clients, ou les deux.
+- Brancher une table `invoices` ou `receivables` si nécessaire.
+
+---
 
 ## Clients
 
-- Portefeuille client avec liste et métadonnées.
+### ✅ Fait
+
+- Page `ClientsPage.tsx`.
+- Hook `useClientsData`.
+- CRUD :
+  - ajout ;
+  - modification ;
+  - suppression.
+- Synchronisation Supabase sur table `customers`.
+- Fallback mock/local.
 - Recherche par nom, canal ou segment.
-- Filtre par statut : actif, churné, en pause.
-- Statistiques : total clients, clients actifs, revenu total, revenu moyen.
-- CRUD clients : ajout, modification, suppression.
-- Formulaire client : nom, segment, canal d'acquisition, date, statut, MRR, revenu total, marge brute, coûts directs.
+- Filtres par statut :
+  - actif ;
+  - churné ;
+  - en pause.
+- KPIs :
+  - total clients ;
+  - clients actifs ;
+  - revenu total ;
+  - revenu moyen.
+- Formulaire client : nom, segment, canal, date, statut, MRR, revenu total, marge brute, coûts directs.
+- Rollback UI en cas d'erreur mutation Supabase.
+
+---
 
 ## Marketing & Growth
 
-- Suivi des métriques marketing et d'acquisition.
-- KPIs : CAC, LTV, LTV/CAC, payback period, ROI marketing, taux de conversion, dépense marketing, clients acquis, leads, MQL, SQL.
-- Graphiques : LTV vs CAC, ROI, dépense vs revenu.
-- Entonnoir de conversion leads -> MQL -> SQL -> clients.
-- Analyse du revenu par canal.
-- Table de campagnes marketing avec édition et suppression.
-- CRUD métriques marketing.
+### ✅ Fait
 
-## Prévisions
+- Page `MarketingPage.tsx`.
+- Hook `useMarketingData`.
+- CRUD métriques marketing sur table `marketing_metrics`.
+- Fallback mock/local.
+- KPIs :
+  - CAC ;
+  - LTV ;
+  - LTV/CAC ;
+  - payback period ;
+  - ROI ;
+  - conversion ;
+  - dépense ;
+  - clients acquis ;
+  - revenu généré ;
+  - leads ;
+  - ROAS moyen.
+- Graphiques marketing lazy-loaded.
+- Entonnoir leads -> MQL -> SQL -> clients.
+- Analyse par canal.
+- Table campagnes/métriques marketing avec édition/suppression.
 
-- Sélection de scénarios financiers prédéfinis.
-- Projections de cash et runway sur 12 mois.
-- Simulateur de scénarios :
-  - variation des revenus ;
-  - variation des dépenses ;
-  - coût d'embauche.
-- Préréglages "What-if" et saisie manuelle via sliders/champs.
-- Comparaison de scénarios avec écarts.
-- Graphiques de projection et d'évolution du cash.
+### 🔄 Partiel
 
-## Rapports
+- Les données externes Google Ads/Meta Ads ne sont pas synchronisées.
+- `channel_id` est saisi manuellement, pas encore relié à une table `marketing_channels` dans l'app.
 
-- Rapports financiers et insights automatisés.
-- Synthèse mensuelle : revenu, dépenses, cashflow net.
-- Santé financière : marge brute, burn rate, runway, cash disponible.
-- Résumé marketing : CAC, clients acquis, taux de conversion, ROI marketing.
-- Économie unitaire : ARPU, LTV, LTV/CAC, payback period.
-- Rétention : churn rate, retention, MRR, clients actifs.
-- Structure financière : leverage ratio, DSO, DIO, DPO, CCC.
-- Visualisation de concentration des revenus.
-- Analyse de cohortes.
-- Cartes d'insights dynamiques.
+### ⏳ À faire
 
-## Paramètres
+- `GoogleAdsParser`.
+- `MetaAdsParser`.
+- OAuth / tokens / refresh.
+- Upsert et déduplication backend.
+- Synchronisation glissante.
+- Conversion devise des imports ads.
+- Chiffrement des clés/tokens API marketing au repos.
 
-- Interface en onglets : profil, notifications, sécurité, facturation, préférences.
-- Profil : photo, nom, prénom, email, téléphone, entreprise.
-- Notifications : email, transactions, rapports hebdomadaires, facturation, marketing.
-- Sécurité : changement de mot de passe, confirmation, longueur minimale, toggle 2FA, alertes de connexion.
-- Facturation : plans Starter/Pro/Enterprise, moyen de paiement, historique et téléchargement de facture.
-- Préférences d'interface.
+---
 
-## Sécurité Et Privacy
+## Prévisions / Forecast
 
-- Variables d'environnement sensibles exclues du versioning.
-- Clé Supabase publishable côté frontend uniquement.
-- Clé Supabase service role limitée au serveur Express.
-- Middleware Super Admin avec vérification JWT Supabase et whitelist `SUPER_ADMIN_EMAILS`.
-- CORS whitelist via `ADMIN_CORS_ORIGINS`.
-- Rate limiting en mémoire sur `/api/admin/*` et `/api/export`.
-- Journalisation applicative prévue pour les actions sensibles SA via `admin_audit_logs`.
-- Script Supabase `supabase/privacy-hardening.sql` :
+### ✅ Fait
+
+- Page `ForecastPage.tsx`.
+- Scénarios financiers prédéfinis.
+- Projection cash/runway sur 12 mois.
+- Simulation via `calculator.simulateScenario()`.
+- Table de synthèse.
+- Graphiques de projection.
+- Comparaison réel vs prévu.
+
+### 🔄 Partiel
+
+- Pas de persistance Supabase dédiée des scénarios/forecasts.
+
+---
+
+## Rapports / Reporting
+
+### ✅ Fait
+
+- Page `ReportsPage.tsx`.
+- Rapport mensuel dynamique.
+- Sections financières, marketing, unit economics, rétention, structure financière.
+- Insights automatiques.
+- Visualisations :
+  - concentration des revenus ;
+  - leverage gauge ;
+  - variations et synthèses.
+- Export PDF/CSV via `ExportButton` et serveur Express.
+
+### 🔄 Partiel
+
+- Certains rapports reposent sur données calculées/mock si Supabase n'a pas encore de données.
+
+---
+
+## Paramètres / Settings
+
+### ✅ Fait
+
+- Page `SettingsPage.tsx`.
+- Onglets :
+  - Profil ;
+  - Notifications ;
+  - Sécurité ;
+  - Facturation ;
+  - Préférences.
+- UI profil avec upload photo local.
+- UI notifications avec toggles.
+- UI sécurité avec changement de mot de passe simulé, 2FA toggle et alertes connexion.
+- UI facturation avec plans, moyen de paiement simulé, historique et téléchargement `.txt`.
+- UI préférences : langue, devise, fuseau horaire, mode sombre, animations, sons.
+
+### 🔄 Partiel
+
+- Les réglages ne sont pas persistés en base.
+- Le changement de mot de passe de Settings est simulé et n'appelle pas Supabase Auth.
+- Le toggle 2FA n'active pas une MFA réelle.
+- La facturation est une simulation UI.
+
+---
+
+## Sécurité & Privacy
+
+### ✅ Fait
+
+- Auth Supabase côté front.
+- Service role absent du frontend.
+- Middleware Express Super Admin.
+- JWT Bearer vérifié côté serveur pour les routes `/api/admin/*`.
+- CORS whitelist.
+- Rate limiting en mémoire :
+  - admin : 60 requêtes/min par IP par défaut ;
+  - export : 20 requêtes/min par IP par défaut.
+- Audit logs applicatifs avec IP, user-agent, acteur, cible et metadata non sensible.
+- Script `supabase/privacy-hardening.sql` :
   - `admin_audit_logs` ;
   - `privacy_requests` ;
   - `data_retention_policies`.
-- Documentation `docs/privacy-readiness.md`, base nLPD suisse + RGPD si applicable.
-- Les mots de passe, tokens, hash de mots de passe et secrets API ne sont pas journalisés.
+- Documentation `docs/privacy-readiness.md`.
+- RLS et vues Supabase durcies via SQL Editor lors de l'audit précédent.
+- Mots de passe/tokens/secrets non journalisés.
 
-## Exports Et Utilitaires
+### 🔄 Partiel / ⚠️ À vérifier
 
-- Thème global (`ThemeProvider`) avec bascule dark/light.
-- Sélecteur de devise (`CurrencyProvider`) : CHF, EUR, USD.
-- Sélecteur de période (`DateRangeBar`) avec presets, calendrier personnalisé, comparaisons et devise.
-- Toasts de notifications.
+- Les migrations Supabase complètes ne reflètent pas encore toutes les corrections faites manuellement dans SQL Editor.
+- Le script privacy doit être exécuté dans Supabase pour activer les tables correspondantes.
+- HTTPS/TLS dépend du déploiement.
+- La conformité nLPD/RGPD doit être validée juridiquement.
+
+### ⏳ À faire
+
+- MFA réel, surtout pour SA.
+- Chiffrement AES-256 des futures clés API marketing.
+- Tests sécurité dédiés.
+- Journal UI des audit logs.
+- Procédure incident opérationnelle côté entreprise.
+
+---
+
+## Exports & Utilitaires
+
+### ✅ Fait
+
+- Export PDF/CSV côté serveur Express.
+- Validation format `pdf` / `csv`.
+- Export dashboard via `DeferredExportButton`.
+- Composants `ExportButton`, `ExportActions`, `PeriodComparator` présents.
+- Thème dark/light.
+- Sélecteur devise CHF/EUR/USD.
+- Sélecteur de période.
+- Toasts de notification.
 - Chargement différé avec `Suspense`.
-- Export CSV/PDF via `PeriodComparator`, `ExportActions` et serveur Express.
-- Composants UI réutilisables : cartes, tableaux, modaux, boutons, badges, formulaires.
-- Données mockées et calculs de métriques dans `src/app/lib` et `src/app/contexts`.
+- Composants UI réutilisables.
+- Calculs centralisés via `MetricsCalculator`.
+
+### 🔄 Partiel
+
+- À harmoniser visuellement/fonctionnellement entre les différents composants export si besoin produit.
+- Production Express à valider derrière HTTPS.
+
+---
 
 ## Architecture Technique
 
-- Application montée avec Vite.
-- Architecture orientée `features`, `components`, `contexts`, `shared`.
-- Routage centralisé dans `src/app/routes.ts`.
-- Chargement paresseux des pages et sections critiques.
-- Logique métier centralisée via `MetricsContext`, `CurrencyContext`, `DateRangeContext`, `ThemeContext` et `AuthContext`.
-- Serveur Express optionnel pour exports et opérations Super Admin sécurisées.
-- Supabase pour Auth, base de données, RLS et politiques multi-tenant.
+### ✅ Fait
 
+- SPA React/Vite.
+- Architecture par `features`, `components`, `contexts`, `shared`.
+- Routage centralisé dans `src/app/routes.ts`.
+- Contextes :
+  - `AuthContext` ;
+  - `MetricsContext` ;
+  - `CurrencyContext` ;
+  - `DateRangeContext` ;
+  - `ThemeContext`.
+- Serveur Express pour exports et opérations admin.
+- Client Supabase externalisé dans `src/utils/supabase.ts`.
+- Types partagés dans `src/shared/types.ts`.
+- Schéma SQL de base dans `src/shared/schema.sql`.
+- Tests unitaires métier dans `src/app/lib/metrics.test.ts`.
+
+### 🔄 Partiel
+
+- Données réelles Supabase branchées sur une partie des modules seulement.
+- Pas encore de pipeline migration Supabase complet.
+- Pas encore de tests E2E.
+
+---
+
+# Backlog Priorisé Réel
+
+## Priorité Haute
+
+1. Exécuter et vérifier `supabase/privacy-hardening.sql` dans Supabase.
+2. Générer/commiter une migration Supabase complète de l'état réel :
+   - RLS ;
+   - policies ;
+   - vues `security_invoker` ;
+   - tables privacy.
+3. Vérifier l'isolation multi-tenant avec deux utilisateurs/deux `company_id`.
+4. Mettre HTTPS/TLS en production pour Express.
+5. Ajouter tests QA/E2E sur :
+   - login ;
+   - changement forcé du mot de passe ;
+   - création compte SA ;
+   - blocage/déblocage ;
+   - suppression accès ;
+   - RLS inter-company.
+
+## Priorité Moyenne
+
+6. Rendre Settings persistant ou clarifier que c'est une maquette.
+7. Décider et implémenter le vrai modèle Factures :
+   - fournisseurs/dépenses ;
+   - clients/créances ;
+   - ou deux modules séparés.
+8. Ajouter consultation des audit logs dans l'espace SA.
+9. Ajouter MFA réel pour Super Admin.
+10. Implémenter les intégrations Google Ads / Meta Ads.
+
+## Priorité Basse
+
+11. Reset password autonome.
+12. Rate limiting distribué si production multi-instance.
+13. Export privacy / data subject request assisté.
+14. Amélioration investisseurs des exports PDF.
+15. Tests visuels et accessibilité.
