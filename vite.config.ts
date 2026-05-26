@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
@@ -90,5 +90,18 @@ export default defineConfig(({ mode }) => {
       },
     },
     assetsInclude: ['**/*.svg', '**/*.csv'],
+    test: {
+      coverage: {
+        provider: 'v8',
+        reporter: ['text'],
+        include: ['src/app/lib/metrics.ts'],
+        thresholds: {
+          branches: 100,
+          functions: 100,
+          lines: 100,
+          statements: 100,
+        },
+      },
+    },
   }
 })

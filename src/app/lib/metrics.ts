@@ -465,17 +465,37 @@ export class MetricsCalculator {
 
     private calculateCACByChannel(channel?: string): number {
         if (!channel) return this.calculateCAC();
-        const totalChannelCost = sumAmounts(
-            this.filterTx(this.monthStart(1), this.monthStart(0), "expense")
-                .filter((t) => t.category?.toLowerCase().includes(channel.toLowerCase()))
-        );
-        const newCustomersCount = this.customers.filter(
+        const startKey = this.monthStart(1).toISOString().slice(0, 7);
+        const endKey = this.monthStart(0).toISOString().slice(0, 7);
+        const normalizedChannel = channel.toLowerCase();
+
+        let totalChannelCost = this.marketingMetrics
+            .filter((metric) => {
+                const periodKey = metric.period_start?.slice(0, 7);
+                return metric.channel_id?.toLowerCase() === normalizedChannel &&
+                    periodKey !== undefined &&
+                    periodKey >= startKey &&
+                    periodKey < endKey;
+            })
+            .reduce((sum, metric) => sum + metric.spend, 0);
+
+        if (totalChannelCost === 0) {
+            totalChannelCost = sumAmounts(
+                this.filterTx(this.monthStart(1), this.monthStart(0), "expense")
+                    .filter((t) =>
+                        t.linked_channel?.toLowerCase() === normalizedChannel ||
+                        t.category?.toLowerCase().includes(normalizedChannel)
+                    )
+            );
+        }
+
+        const newCustomers = this.customers.filter(
             (c) =>
                 c.acquisition_channel === channel &&
-                new Date(c.acquisition_date) >= this.monthStart(1) &&
-                new Date(c.acquisition_date) < this.monthStart(0)
-        ).length;
-        return newCustomersCount > 0 ? totalChannelCost / newCustomersCount : 0;
+                c.acquisition_date >= startKey &&
+                c.acquisition_date < endKey
+        );
+        return newCustomers.length > 0 ? totalChannelCost / newCustomers.length : 0;
     }
 
     public calculateClientMargin(customerId: string): number {
@@ -692,7 +712,7 @@ export class MetricsCalculator {
                 months.push({
                     label:          `M+${m}`,
                     revenue,
-                    avgPerCustomer: cohortCustomers.length > 0 ? Math.round(revenue / cohortCustomers.length) : 0,
+                    avgPerCustomer: Math.round(revenue / cohortCustomers.length),
                 });
             }
 

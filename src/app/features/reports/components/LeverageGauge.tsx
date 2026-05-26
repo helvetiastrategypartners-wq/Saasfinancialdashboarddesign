@@ -22,11 +22,11 @@ export function LeverageGauge({ value }: { value: number }) {
   const needleAngle = toAngle(clampedValue);
   const { x: needleX, y: needleY } = polarXY(centerX, centerY, needleRadius, needleAngle);
   const zoneColor = value < 2 ? "var(--accent-blue)" : value < 4 ? "#f97316" : "var(--accent-red)";
-  const zoneLabel = value < 2 ? "Sain" : value < 4 ? "Modere" : "RisquE";
+  const zoneLabel = value < 2 ? "Sain" : value < 4 ? "Modere" : "Risque";
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <svg viewBox="0 0 200 130" className="w-56 h-36">
+      <svg viewBox="0 0 200 150" className="w-56 h-40">
         <path d={arcD(centerX, centerY, radius, 180, 0)} fill="none" stroke="var(--border)" strokeWidth={16} strokeLinecap="round" />
         <path d={arcD(centerX, centerY, radius, 180, toAngle(2))} fill="none" stroke="var(--accent-blue)" strokeWidth={14} strokeOpacity={0.8} strokeLinecap="round" />
         <path d={arcD(centerX, centerY, radius, toAngle(2), toAngle(4))} fill="none" stroke="#f97316" strokeWidth={14} strokeOpacity={0.8} strokeLinecap="round" />

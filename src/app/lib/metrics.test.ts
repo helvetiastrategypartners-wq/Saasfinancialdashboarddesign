@@ -1172,6 +1172,21 @@ describe("MetricsCalculator.calculateClientMargin — client sans canal (L467)",
         // calculateCACByChannel(undefined) → calculateCAC() → 0
         expect(calc.calculateClientMargin("c1")).toBe(0);
     });
+
+    it("utilise le spend marketing du canal pour le CAC client", () => {
+        const customers = [
+            makeCustomer({ id: "c1", acquisition_channel: "web", acquisition_date: "2025-02-05" }),
+            makeCustomer({ id: "c2", acquisition_channel: "web", acquisition_date: "2025-02-10" }),
+        ];
+        const txs = [
+            makeTx({ date: "2025-02-10", type: "income", amount: 5000, linked_customer: "c1" }),
+            makeTx({ id: "tx2", date: "2025-02-11", type: "income", amount: 5000, linked_customer: "c2" }),
+            makeTx({ id: "tx3", date: "2025-02-12", type: "expense", amount: 2000, category: "Direct Costs" }),
+        ];
+        const mktg = [makeMktg({ channel_id: "web", spend: 6000, period_start: "2025-02-01" })];
+
+        expect(makeCalc({ customers, transactions: txs, marketingMetrics: mktg }).calculateClientMargin("c1")).toBe(1000);
+    });
 });
 
 // ── Branche L478 : calculateCACByChannel retourne 0 (aucun nouveau client) ───
@@ -1415,5 +1430,41 @@ describe("MetricsCalculator.calculateDIO — stocks à unit_cost = 0", () => {
         ];
         // totalInventoryValue = 100*0 = 0 → DIO = 0
         expect(makeCalc({ transactions: txs, inventory }).calculateDIO()).toBe(0);
+    });
+});
+describe("MetricsCalculator.getCohortRevenueAnalysis", () => {
+    it("agrege les revenus par cohorte et mois depuis les clients lies", () => {
+        const customers = [
+            makeCustomer({ id: "c1", acquisition_date: "2025-01-15" }),
+            makeCustomer({ id: "c2", acquisition_date: "2025-01-20" }),
+            makeCustomer({ id: "c3", acquisition_date: "2025-02-05" }),
+        ];
+        const txs = [
+            makeTx({ date: "2025-01-25", type: "income", amount: 1000, linked_customer: "c1" }),
+            makeTx({ id: "tx2", date: "2025-02-10", type: "income", amount: 2000, linked_customer: "c2" }),
+            makeTx({ id: "tx3", date: "2025-02-12", type: "income", amount: 3000, linked_customer: "c3" }),
+            makeTx({ id: "tx4", date: "2025-02-14", type: "income", amount: 999, linked_customer: "unknown" }),
+            makeTx({ id: "tx5", date: "2025-02-16", type: "expense", amount: 500, linked_customer: "c1" }),
+            makeTx({ id: "tx6", date: "2025-02-20", type: "income", amount: 700, payment_status: "pending", linked_customer: "c1" }),
+        ];
+
+        const result = makeCalc({ customers, transactions: txs }).getCohortRevenueAnalysis();
+
+        expect(result.map(cohort => cohort.cohort)).toEqual(["2025-01", "2025-02"]);
+        expect(result[0].size).toBe(2);
+        expect(result[0].months[0]).toMatchObject({ label: "M+0", revenue: 1000, avgPerCustomer: 500 });
+        expect(result[0].months[1]).toMatchObject({ label: "M+1", revenue: 2000, avgPerCustomer: 1000 });
+        expect(result[1].months[0]).toMatchObject({ label: "M+0", revenue: 3000, avgPerCustomer: 3000 });
+    });
+
+    it("retourne un tableau vide si aucun client n'existe", () => {
+        expect(makeCalc().getCohortRevenueAnalysis()).toEqual([]);
+    });
+
+    it("limite l'historique d'une cohorte a 12 mois", () => {
+        const customers = [makeCustomer({ id: "c1", acquisition_date: "2023-01-15" })];
+        const calc = makeCalc({ customers, refDate: new Date("2025-03-15T12:00:00Z") });
+
+        expect(calc.getCohortRevenueAnalysis()[0].months).toHaveLength(12);
     });
 });
