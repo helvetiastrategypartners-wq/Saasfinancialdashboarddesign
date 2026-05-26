@@ -46,6 +46,10 @@ out/
 coverage/
 *.lcov
 
+# --- Notes locales Supabase ---
+# Audits / brouillons SQL locaux non versionnes
+supabase/data/
+
 # --- Divers ---
 .eslintcache
 .stylelintcache
