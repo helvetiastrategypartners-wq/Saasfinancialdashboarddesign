@@ -1,22 +1,19 @@
 import { AnimatePresence, motion } from "motion/react";
-import { AlertCircle, CheckCircle, Loader2, Plus, Sparkles, Trash2, Zap } from "lucide-react";
+import { AlertCircle, Loader2, Plus, Trash2, Zap } from "lucide-react";
 import { useState } from "react";
-import { Field, Overlay, inputCls, useToast } from "../../components/Modal";
+import { Overlay, useToast } from "../../components/Modal";
 import { GlassCard } from "../../components/ui/GlassCard";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { SearchInput } from "../../components/ui/SearchInput";
-import { InvoicesTable } from "./components";
+import { InvoiceAIModal, InvoiceFormModal, InvoicesTable } from "./components";
 import {
-  AI_STEPS,
   buildInvoicePayload,
   EMPTY_INVOICE_FORM,
-  INVOICE_CATEGORIES,
   toInvoiceForm,
   useInvoicesData,
   type InvoiceFormState,
   type InvoiceRow,
 } from "./hooks";
-import type { Transaction } from "@shared/types";
 
 type ModalMode = "add" | "edit" | "delete" | "ai" | null;
 
@@ -103,6 +100,22 @@ export function Invoices() {
     });
   }
 
+  function openExtractedInvoiceForm() {
+    setModal(null);
+    setTimeout(() => {
+      setForm({
+        label: "Fournisseur extrait",
+        category: "Operations",
+        amount: "1250",
+        date: new Date().toISOString().slice(0, 10),
+        payment_status: "pending",
+        description: "Via AI Extraction",
+      });
+      setSelectedInvoice(null);
+      setModal("add");
+    }, 50);
+  }
+
   return (
     <div className="p-8 space-y-6">
       {ToastEl}
@@ -171,51 +184,14 @@ export function Invoices() {
 
       <AnimatePresence>
         {(modal === "add" || modal === "edit") && (
-          <Overlay onClose={() => setModal(null)} title={modal === "add" ? "Nouvelle facture" : "Modifier la facture"}>
-            <div className="space-y-4">
-              <Field label="Fournisseur">
-                <input type="text" value={form.label} onChange={(event) => updateForm("label", event.target.value)} placeholder="Ex: AWS, Loyer, Prestataire..." className={inputCls} />
-              </Field>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Categorie">
-                  <select value={form.category} onChange={(event) => updateForm("category", event.target.value)} className={inputCls}>
-                    {INVOICE_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Statut">
-                  <select value={form.payment_status} onChange={(event) => updateForm("payment_status", event.target.value as Transaction["payment_status"])} className={inputCls}>
-                    <option value="pending">Emise</option>
-                    <option value="completed">Payee</option>
-                    <option value="cancelled">Remboursement</option>
-                  </select>
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <Field label="Montant (CHF)">
-                  <input type="number" min="0" step="0.01" value={form.amount} onChange={(event) => updateForm("amount", event.target.value)} placeholder="0.00" className={inputCls} />
-                </Field>
-                <Field label="Date">
-                  <input type="date" value={form.date} onChange={(event) => updateForm("date", event.target.value)} className={inputCls} />
-                </Field>
-              </div>
-              <Field label="Description (optionnel)">
-                <input type="text" value={form.description} onChange={(event) => updateForm("description", event.target.value)} placeholder="Note interne..." className={inputCls} />
-              </Field>
-            </div>
-            <div className="flex justify-end gap-3 mt-8">
-              <button onClick={() => setModal(null)} className="px-5 py-2.5 rounded-xl border border-glass-border text-foreground hover:bg-white/5 transition-colors">
-                Annuler
-              </button>
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={handleSave} disabled={saving || !form.label.trim() || !form.amount} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors disabled:opacity-50">
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                {modal === "add" ? "Ajouter" : "Enregistrer"}
-              </motion.button>
-            </div>
-          </Overlay>
+          <InvoiceFormModal
+            form={form}
+            mode={modal}
+            saving={saving}
+            onCancel={() => setModal(null)}
+            onSave={handleSave}
+            onUpdate={updateForm}
+          />
         )}
 
         {modal === "delete" && selectedInvoice && (
@@ -242,55 +218,11 @@ export function Invoices() {
         )}
 
         {modal === "ai" && (
-          <Overlay onClose={aiStep >= 4 ? () => setModal(null) : undefined} small>
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-full bg-accent-red/20 flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-accent-red" />
-              </div>
-              <h2 className="text-lg font-semibold text-foreground">AI Extraction</h2>
-            </div>
-            <div className="space-y-3 mb-6">
-              {AI_STEPS.map((label, index) => (
-                <div key={label} className="flex items-center gap-3">
-                  {aiStep > index ? (
-                    <CheckCircle className="w-5 h-5 text-accent-blue shrink-0" />
-                  ) : aiStep === index ? (
-                    <Loader2 className="w-5 h-5 text-accent-red animate-spin shrink-0" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border border-glass-border shrink-0" />
-                  )}
-                  <span className={`text-sm ${aiStep > index ? "text-foreground" : "text-muted-foreground"}`}>{label}</span>
-                </div>
-              ))}
-            </div>
-            {aiStep >= 4 && (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Extraction terminee. Verifiez et completez les champs avant d'enregistrer.
-                </p>
-                <button
-                  onClick={() => {
-                    setModal(null);
-                    setTimeout(() => {
-                      setForm({
-                        label: "Fournisseur extrait",
-                        category: "Operations",
-                        amount: "1250",
-                        date: new Date().toISOString().slice(0, 10),
-                        payment_status: "pending",
-                        description: "Via AI Extraction",
-                      });
-                      setSelectedInvoice(null);
-                      setModal("add");
-                    }, 50);
-                  }}
-                  className="w-full py-2.5 rounded-xl bg-accent-red text-white hover:bg-accent-red/90 transition-colors font-medium"
-                >
-                  Ouvrir le formulaire
-                </button>
-              </motion.div>
-            )}
-          </Overlay>
+          <InvoiceAIModal
+            aiStep={aiStep}
+            onClose={() => setModal(null)}
+            onOpenForm={openExtractedInvoiceForm}
+          />
         )}
       </AnimatePresence>
     </div>

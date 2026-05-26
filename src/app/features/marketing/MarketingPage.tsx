@@ -4,8 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { DeleteConfirm, Field, Overlay, inputCls, useToast } from "../../components/Modal";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
-import { GlassCard } from "../../components/ui/GlassCard";
-import { MarketingCampaignTable } from "./components";
+import { MarketingCampaignTable, MarketingFunnelSection, MarketingRevenueByChannelCards } from "./components";
 import {
   buildMarketingPayload,
   EMPTY_MARKETING_FORM,
@@ -145,63 +144,20 @@ export function Marketing() {
         />
       </Suspense>
 
-      <GlassCard delay={0.25}>
-        <h3 className="text-xl font-semibold text-foreground mb-2">Entonnoir de conversion</h3>
-        <p className="text-sm text-muted-foreground mb-6">{monthLabel} - parcours leads vers MQL puis SQL puis clients</p>
-        <div className="space-y-4">
-          {funnelStages.map((stage, index) => {
-            const conversionRate =
-              index > 0 && funnelStages[index - 1].value > 0
-                ? (stage.value / funnelStages[index - 1].value) * 100
-                : null;
+      <MarketingFunnelSection
+        funnelStages={funnelStages}
+        monthLabel={monthLabel}
+        totalClients={totalClients}
+        totalLeads={totalLeads}
+        totalMql={totalMql}
+        totalSql={totalSql}
+      />
 
-            return (
-              <div key={stage.label}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: stage.color }} />
-                    <span className="text-sm font-medium text-foreground">{stage.label}</span>
-                    {conversionRate !== null && <span className="text-xs text-muted-foreground">{conversionRate.toFixed(1)}% du precedent</span>}
-                  </div>
-                  <span className="text-sm font-semibold tabular-nums" style={{ color: stage.color }}>
-                    {stage.value.toLocaleString("fr-CH")}
-                  </span>
-                </div>
-                <div className="h-8 rounded-lg overflow-hidden" style={{ background: "var(--secondary)" }}>
-                  <motion.div initial={{ width: 0 }} animate={{ width: `${stage.pct}%` }} transition={{ duration: 0.7, delay: 0.1 + index * 0.1, ease: "easeOut" }} className="h-full rounded-lg" style={{ background: stage.color, opacity: 0.8 }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-6 grid grid-cols-3 gap-3">
-          {[
-            { label: "Leads vers Clients", value: totalLeads > 0 ? `${((totalClients / totalLeads) * 100).toFixed(1)}%` : "-" },
-            { label: "Leads vers MQL", value: totalLeads > 0 ? `${((totalMql / totalLeads) * 100).toFixed(1)}%` : "-" },
-            { label: "SQL vers Clients", value: totalSql > 0 ? `${((totalClients / totalSql) * 100).toFixed(1)}%` : "-" },
-          ].map((stat) => (
-            <div key={stat.label} className="rounded-xl p-3 border border-glass-border text-center" style={{ background: "var(--glass-bg)" }}>
-              <p className="text-xs text-muted-foreground mb-1">{stat.label}</p>
-              <p className="text-base font-semibold text-foreground">{stat.value}</p>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
-
-      {Object.keys(revenueByChannel).length > 0 && (
-        <GlassCard delay={0.15}>
-          <h3 className="text-xl font-semibold text-foreground mb-4">Revenue par canal (transactions)</h3>
-          <div className="grid grid-cols-4 gap-4">
-            {Object.entries(revenueByChannel).map(([channel, revenue]) => (
-              <div key={channel} className="rounded-xl p-4 border border-glass-border/50" style={{ background: "var(--glass-bg)" }}>
-                <p className="text-xs text-muted-foreground mb-1">{channel}</p>
-                <p className="text-lg font-semibold text-foreground">{format(revenue as number)}</p>
-                <p className="text-xs text-muted-foreground mt-1">CAC : {format((cacByChannel as Record<string, number>)[channel] ?? 0)}</p>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-      )}
+      <MarketingRevenueByChannelCards
+        cacByChannel={cacByChannel as Record<string, number>}
+        format={format}
+        revenueByChannel={revenueByChannel as Record<string, number>}
+      />
 
       <MarketingCampaignTable
         monthlyMetrics={monthlyMetrics}
