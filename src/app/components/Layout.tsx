@@ -11,10 +11,13 @@ import {
   Wallet,
   Sun,
   Moon,
+  LogOut,
+  LifeBuoy,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { AnimatedBackground } from "./AnimatedBackground";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, section: "PILOTAGE" },
@@ -30,6 +33,7 @@ const navItems = [
 export function Layout() {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { user, signOut } = useAuth();
 
   return (
     <div className={`flex h-screen w-full relative ${theme === "dark" ? "dark" : ""}`}>
@@ -47,19 +51,27 @@ export function Layout() {
           style={{ background: "linear-gradient(to bottom right, rgba(59,130,246,0.02), transparent)" }}
         />
 
-        <div className="p-6 pb-8 relative z-10">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-20 h-20 rounded-2xl bg-accent-red flex items-center justify-center shadow-xl">
-              <Wallet className="w-10 h-10 text-white" />
+        <header className="px-5 pt-5 pb-4 relative z-10 border-b border-glass-border/70">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-accent-red flex items-center justify-center shadow-xl shrink-0">
+              <Wallet className="w-6 h-6 text-white" />
             </div>
-            <div className="text-center">
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">HSP</h1>
-              <p className="text-xs text-muted-foreground mt-1">Strategy & Finance</p>
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-foreground tracking-tight leading-tight">HSP</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">Strategy & Finance</p>
             </div>
           </div>
-        </div>
 
-        <nav className="flex-1 p-4 space-y-6 relative z-10 overflow-y-auto">
+          <div
+            className="mt-4 px-3.5 py-3 rounded-lg backdrop-blur-xl"
+            style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
+          >
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground/70">Session</p>
+            <p className="mt-1 text-sm text-foreground truncate">{user?.email}</p>
+          </div>
+        </header>
+
+        <nav className="flex-1 px-4 py-5 space-y-5 relative z-10 overflow-y-auto">
           {["PILOTAGE", "OPERATIONS", "CROISSANCE", "INSIGHTS", "ADMIN"].map((section) => {
             const sectionItems = navItems.filter((item) => item.section === section);
             if (sectionItems.length === 0) {
@@ -68,8 +80,8 @@ export function Layout() {
 
             return (
               <div key={section}>
-                <p className="text-xs font-semibold text-muted-foreground/60 mb-2 px-3 tracking-wider">{section}</p>
-                <div className="space-y-1">
+                <p className="text-[11px] font-semibold text-muted-foreground/60 mb-2 px-3 tracking-wider">{section}</p>
+                <div className="space-y-1.5">
                   {sectionItems.map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
@@ -80,7 +92,7 @@ export function Layout() {
                           whileHover={{ scale: 1.01, x: 3 }}
                           whileTap={{ scale: 0.98 }}
                           transition={{ duration: 0.2, ease: "easeOut" }}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                             isActive
                               ? "text-accent-red bg-accent-red-muted border border-accent-red/30"
                               : "text-muted-foreground hover:text-foreground hover:bg-glass-hover border border-transparent"
@@ -98,12 +110,12 @@ export function Layout() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-glass-border relative z-10 space-y-3">
+        <footer className="p-4 border-t border-glass-border relative z-10 space-y-3">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={toggleTheme}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl text-sm font-medium transition-all duration-200 border"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg backdrop-blur-xl text-sm font-medium transition-all duration-200 border"
             style={{
               background: "var(--glass-bg)",
               borderColor: "var(--glass-border)",
@@ -122,14 +134,33 @@ export function Layout() {
             )}
           </motion.button>
 
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => void signOut()}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg backdrop-blur-xl text-sm font-medium transition-all duration-200 border text-muted-foreground hover:text-foreground"
+            style={{
+              background: "var(--glass-bg)",
+              borderColor: "var(--glass-border)",
+            }}
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Deconnexion</span>
+          </motion.button>
+
           <div
-            className="px-4 py-3 rounded-xl backdrop-blur-xl"
+            className="px-3.5 py-3 rounded-lg backdrop-blur-xl"
             style={{ background: "var(--glass-bg)", border: "1px solid var(--glass-border)" }}
           >
-            <p className="text-xs text-muted-foreground">Support</p>
-            <p className="text-sm text-foreground">management@hspgroup.ch</p>
+            <div className="flex items-start gap-2.5">
+              <LifeBuoy className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground">Support</p>
+                <p className="text-sm text-foreground truncate">management@hspgroup.ch</p>
+              </div>
+            </div>
           </div>
-        </div>
+        </footer>
       </aside>
 
       <main className="flex-1 overflow-auto relative z-10">
