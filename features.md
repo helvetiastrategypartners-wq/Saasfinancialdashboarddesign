@@ -334,10 +334,12 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 - Table de synthèse.
 - Graphiques de projection.
 - Comparaison réel vs prévu.
+- Simulateur extrait dans `ForecastSimulator` pour alléger `ForecastPage`.
 
 ### 🔄 Partiel
 
 - Pas de persistance Supabase dédiée des scénarios/forecasts.
+- Le simulateur reste purement client-side : pas de sauvegarde de scénarios personnalisés.
 
 ---
 
@@ -353,11 +355,15 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
   - concentration des revenus ;
   - leverage gauge ;
   - variations et synthèses.
+- Sections de rapport extraites :
+  - `ReportInsightsSection` ;
+  - `ExpenseVariationCard`.
 - Export PDF/CSV via `ExportButton` et serveur Express.
 
 ### 🔄 Partiel
 
 - Certains rapports reposent sur données calculées/mock si Supabase n'a pas encore de données.
+- Le tableau cohortes revenus reste dans `ReportsPage` et peut encore être extrait proprement.
 
 ---
 
@@ -525,7 +531,7 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 13. Export privacy / data subject request assisté.
 14. Amélioration investisseurs des exports PDF.
 15. Tests visuels et accessibilité.
-16. Continuer le refacto léger des grosses pages restantes :
-   - `ForecastPage.tsx` ;
-   - `ReportsPage.tsx` ;
-   - formulaires CRUD clients/transactions si le pattern se stabilise.
+16. Continuer le refacto léger restant :
+   - tableau cohortes de `ReportsPage.tsx` ;
+   - formulaires CRUD clients/transactions si le pattern se stabilise ;
+   - harmonisation des modales CRUD entre transactions, clients, marketing et invoices.
