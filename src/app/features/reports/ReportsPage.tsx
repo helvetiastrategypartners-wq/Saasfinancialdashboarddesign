@@ -1,12 +1,10 @@
 import { lazy, Suspense } from "react";
-import { motion } from "motion/react";
-import { TrendingUp, TrendingDown } from "lucide-react";
 import { useMetrics } from "../../contexts/MetricsContext";
 import { useCurrency } from "../../contexts/CurrencyContext";
 import { GlassCard } from "../../components/ui/GlassCard";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
-import { LeverageGauge, SummaryCard } from "./components";
+import { ExpenseVariationCard, LeverageGauge, ReportInsightsSection, SummaryCard } from "./components";
 import { useReportsData } from "./hooks";
 
 const RevenueConcentrationSection = lazy(() =>
@@ -179,58 +177,14 @@ export function Reports() {
         </section>
       )}
 
-      <section>
-        <h2 className="text-2xl font-semibold text-foreground mb-4">Insights Automatiques</h2>
-        <div className="space-y-4">
-          {insightCards.map((insight, index) => (
-            <motion.div
-              key={insight.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.06 }}
-              className={`rounded-2xl p-6 backdrop-blur-xl border ${insight.border}`}
-              style={{ background: "var(--glass-bg)" }}
-            >
-              <div className="flex items-start gap-4">
-                <div className={`w-12 h-12 rounded-xl ${insight.bgColor} flex items-center justify-center shrink-0`}>
-                  <insight.icon className={`w-6 h-6 ${insight.color}`} />
-                </div>
-                <p className={`text-base font-medium ${insight.color} self-center`}>{insight.text}</p>
-              </div>
-            </motion.div>
-          ))}
-          {insightCards.length === 0 && (
-            <GlassCard className="text-center">
-              <p className="text-muted-foreground">Aucun insight disponible pour ce mois.</p>
-            </GlassCard>
-          )}
-        </div>
-      </section>
+      <ReportInsightsSection insightCards={insightCards} />
 
-      <section>
-        <h2 className="text-2xl font-semibold text-foreground mb-4">Variation des depenses</h2>
-        <GlassCard>
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-xl" style={{ background: expenseVariation > 0 ? "var(--accent-red-muted)" : "var(--accent-blue-muted)" }}>
-              {expenseVariation > 0
-                ? <TrendingUp className="w-6 h-6 text-accent-red" />
-                : <TrendingDown className="w-6 h-6 text-accent-blue" />}
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Variation depenses (M-1 vs M-2)</p>
-              <p className={`text-2xl font-semibold ${expenseVariation > 0 ? "text-accent-red" : "text-accent-blue"}`}>
-                {expenseVariation >= 0 ? "+" : ""}{expenseVariation.toFixed(1)}%
-              </p>
-            </div>
-            <div className="ml-auto text-right">
-              <p className="text-xs text-muted-foreground">Mars vs Fevrier 2026</p>
-              <p className="text-sm text-foreground">
-                {format(metrics.monthlyExpenses)} vs {format(previousMonthExpenses)}
-              </p>
-            </div>
-          </div>
-        </GlassCard>
-      </section>
+      <ExpenseVariationCard
+        expenseVariation={expenseVariation}
+        format={format}
+        monthlyExpenses={metrics.monthlyExpenses}
+        previousMonthExpenses={previousMonthExpenses}
+      />
     </div>
   );
 }

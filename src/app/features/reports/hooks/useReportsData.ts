@@ -5,7 +5,7 @@ import type { MetricsCalculator } from "../../../lib/metrics";
 
 const CONCENTRATION_COLORS = ["#3b82f6", "#dc2626", "#f97316", "#60a5fa", "#ef4444", "#6b7280"];
 
-interface InsightCard {
+export interface InsightCard {
   id: number;
   text: string;
   icon: LucideIcon;
