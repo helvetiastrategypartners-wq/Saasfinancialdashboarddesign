@@ -4,6 +4,7 @@ import { lazy, Suspense, useState } from "react";
 import { DeleteConfirm, Field, Overlay, inputCls, useToast } from "../../components/Modal";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
+import { EMPTY_DATA_LABEL, formatMonthsOrEmpty, formatPercentOrEmpty, formatRatioOrEmpty } from "../../lib/displayValues";
 import { MarketingCampaignTable, MarketingFunnelSection, MarketingRevenueByChannelCards } from "./components";
 import {
   buildMarketingPayload,
@@ -61,6 +62,7 @@ export function Marketing() {
     updateMarketingMetric,
     deleteMarketingMetric,
   } = useMarketingData();
+  const hasMarketingData = monthlyMetrics.length > 0;
 
   function updateForm<K extends keyof MarketingFormState>(key: K, value: MarketingFormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -119,19 +121,19 @@ export function Marketing() {
       <div className="grid grid-cols-4 gap-6">
         <StatCard label="CAC" value={format(metrics.cac)} description="Cout d'acquisition client" />
         <StatCard label="LTV" value={format(metrics.ltv)} description="Valeur a vie client" />
-        <StatCard label="LTV / CAC" value={`${metrics.ltvCacRatio.toFixed(1)}x`} description="Seuil sain >= 3x" highlight={metrics.ltvCacRatio >= 3} />
-        <StatCard label="Payback period" value={`${metrics.paybackPeriod.toFixed(1)} mois`} description="Recuperation CAC" />
+        <StatCard label="LTV / CAC" value={formatRatioOrEmpty(metrics.ltvCacRatio, hasMarketingData)} description="Seuil sain >= 3x" highlight={hasMarketingData && metrics.ltvCacRatio >= 3} />
+        <StatCard label="Payback period" value={formatMonthsOrEmpty(metrics.paybackPeriod, hasMarketingData)} description="Recuperation CAC" />
       </div>
       <div className="grid grid-cols-4 gap-6">
-        <StatCard label="ROI Marketing" value={`${(metrics.marketingROI ?? 0).toFixed(1)}%`} description="(Revenus - Depenses) / Depenses" highlight={(metrics.marketingROI ?? 0) > 100} />
-        <StatCard label="Taux de conversion" value={`${(metrics.conversionRate ?? 0).toFixed(1)}%`} description="Leads -> clients" />
+        <StatCard label="ROI Marketing" value={formatPercentOrEmpty(metrics.marketingROI, hasMarketingData)} description="(Revenus - Depenses) / Depenses" highlight={hasMarketingData && (metrics.marketingROI ?? 0) > 100} />
+        <StatCard label="Taux de conversion" value={totalLeads > 0 ? `${(metrics.conversionRate ?? 0).toFixed(1)}%` : EMPTY_DATA_LABEL} description="Leads -> clients" />
         <StatCard label="Depense marketing" value={format(totalSpend)} description={monthLabel} />
         <StatCard label="Clients acquis" value={`+${totalClients}`} description={monthLabel} highlight />
       </div>
       <div className="grid grid-cols-3 gap-6">
         <StatCard label="Revenu genere" value={format(totalRevenue)} description="Canaux marketing" />
         <StatCard label="Total leads" value={`${totalLeads}`} description={monthLabel} />
-        <StatCard label="ROAS moyen" value={`${avgRoas.toFixed(2)}x`} description="Revenu / Depense" highlight={avgRoas > 2} />
+        <StatCard label="ROAS moyen" value={totalSpend > 0 ? `${avgRoas.toFixed(2)}x` : EMPTY_DATA_LABEL} description="Revenu / Depense" highlight={avgRoas > 2} />
       </div>
 
       <Suspense fallback={<ChartSectionFallback />}>

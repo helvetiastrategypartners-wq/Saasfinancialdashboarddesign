@@ -86,6 +86,62 @@ where schemaname = 'public'
   )
 order by tablename, policyname;
 
+-- Expected: one policy set per table using app_private.current_company_id().
+-- If rows appear here, the previous private.current_company_id() baseline left duplicates to clean.
+select
+  tablename,
+  policyname
+from pg_policies
+where schemaname = 'public'
+  and policyname in (
+    'alerts authenticated company select',
+    'alerts authenticated company insert',
+    'alerts authenticated company update',
+    'alerts authenticated company delete',
+    'cohort_snapshots authenticated company select',
+    'cohort_snapshots authenticated company insert',
+    'cohort_snapshots authenticated company update',
+    'cohort_snapshots authenticated company delete',
+    'customers authenticated company select',
+    'customers authenticated company insert',
+    'customers authenticated company update',
+    'customers authenticated company delete',
+    'debts authenticated company select',
+    'debts authenticated company insert',
+    'debts authenticated company update',
+    'debts authenticated company delete',
+    'goals authenticated company select',
+    'goals authenticated company insert',
+    'goals authenticated company update',
+    'goals authenticated company delete',
+    'inventory_items authenticated company select',
+    'inventory_items authenticated company insert',
+    'inventory_items authenticated company update',
+    'inventory_items authenticated company delete',
+    'marketing_metrics authenticated company select',
+    'marketing_metrics authenticated company insert',
+    'marketing_metrics authenticated company update',
+    'marketing_metrics authenticated company delete',
+    'products authenticated company select',
+    'products authenticated company insert',
+    'products authenticated company update',
+    'products authenticated company delete',
+    'receivables authenticated company select',
+    'receivables authenticated company insert',
+    'receivables authenticated company update',
+    'receivables authenticated company delete',
+    'transactions authenticated company select',
+    'transactions authenticated company insert',
+    'transactions authenticated company update',
+    'transactions authenticated company delete',
+    'companies authenticated own select',
+    'profiles authenticated own select',
+    'profiles authenticated own update'
+  )
+order by tablename, policyname;
+
+-- Expected: 0 rows.
+
 -- 4. Reporting views should be security_invoker and authenticated SELECT only.
 select
   c.relname as view_name,
@@ -131,5 +187,12 @@ select
   ) as ok;
 
 select
-  'private.current_company_id callable' as check_name,
-  private.current_company_id() is not null as has_company_for_current_user;
+  'app_private.current_company_id exists' as check_name,
+  to_regprocedure('app_private.current_company_id()') is not null as ok;
+
+select
+  'app_private.current_company_id callable' as check_name,
+  app_private.current_company_id() is not null as has_company_for_current_user;
+
+-- The callable check returns false in SQL Editor without an authenticated app
+-- session because auth.uid() is null. Validate tenant filtering from the app.

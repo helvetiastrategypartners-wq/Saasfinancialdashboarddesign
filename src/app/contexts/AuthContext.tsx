@@ -8,6 +8,9 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   error: string | null;
+  profileLoading: boolean;
+  companyId: string | null;
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -18,7 +21,10 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   useEffect(() => {
     const client = supabase;
@@ -55,11 +61,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    const client = supabase;
+    const userId = session?.user.id;
+
+    if (!client || !userId) {
+      setProfileLoading(false);
+      setCompanyId(null);
+      setMustChangePassword(false);
+      return;
+    }
+
+    let active = true;
+    setProfileLoading(true);
+
+    client
+      .from("profiles")
+      .select("company_id, must_change_password")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data, error: profileError }) => {
+        if (!active) {
+          return;
+        }
+
+        if (profileError) {
+          setCompanyId(typeof session.user.user_metadata?.company_id === "string" ? session.user.user_metadata.company_id : null);
+          setMustChangePassword(Boolean(session.user.user_metadata?.must_change_password));
+          setProfileLoading(false);
+          return;
+        }
+
+        setCompanyId(data?.company_id ?? (typeof session.user.user_metadata?.company_id === "string" ? session.user.user_metadata.company_id : null));
+        setMustChangePassword(Boolean(data?.must_change_password ?? session.user.user_metadata?.must_change_password));
+        setProfileLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
   const value = useMemo<AuthContextType>(() => ({
     user: session?.user ?? null,
     session,
     loading,
     error,
+    profileLoading,
+    companyId,
+    mustChangePassword,
     signIn: async (email: string, password: string) => {
       const client = supabase;
       if (!isSupabaseConfigured() || !client) {
@@ -84,11 +134,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setError(updateError.message);
         throw updateError;
       }
+
+      const userId = session?.user.id;
+      if (!userId) {
+        throw new Error("Session introuvable.");
+      }
+
+      const { error: profileError } = await client
+        .from("profiles")
+        .update({ must_change_password: false })
+        .eq("id", userId);
+
+      if (profileError) {
+        setError(profileError.message);
+        throw profileError;
+      }
+
+      const { data: userData, error: metadataError } = await client.auth.updateUser({
+        data: {
+          ...(session.user.user_metadata ?? {}),
+          must_change_password: false,
+        },
+      });
+
+      if (metadataError) {
+        setError(metadataError.message);
+        throw metadataError;
+      }
+
+      setSession((currentSession) => currentSession && userData.user
+        ? { ...currentSession, user: userData.user }
+        : currentSession);
+      setMustChangePassword(false);
     },
     signOut: async () => {
       const client = supabase;
       if (!client) {
         setSession(null);
+        setCompanyId(null);
+        setMustChangePassword(false);
         return;
       }
 
@@ -98,8 +182,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw signOutError;
       }
       setSession(null);
+      setProfileLoading(false);
+      setCompanyId(null);
+      setMustChangePassword(false);
     },
-  }), [error, loading, session]);
+  }), [companyId, error, loading, mustChangePassword, profileLoading, session]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

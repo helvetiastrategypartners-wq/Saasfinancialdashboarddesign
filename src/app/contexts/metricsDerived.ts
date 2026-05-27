@@ -9,6 +9,10 @@ import {
 } from "../lib/mockData";
 import type { MetricsBaseState, MonthlyDataPoint } from "./metricsTypes";
 
+interface MetricsDerivedStateParams extends MetricsBaseState {
+  useDemoData: boolean;
+}
+
 function parseDateValue(value?: string): number | null {
   if (!value) {
     return null;
@@ -63,7 +67,8 @@ export function useMetricsDerivedState({
   transactions,
   customers,
   marketingMetrics,
-}: MetricsBaseState) {
+  useDemoData,
+}: MetricsDerivedStateParams) {
   const referenceDate = useMemo(
     () => getReportingReferenceDate({ transactions, customers, marketingMetrics }),
     [transactions, customers, marketingMetrics],
@@ -73,13 +78,13 @@ export function useMetricsDerivedState({
     transactions,
     customers,
     marketingMetrics,
-    mockProducts,
-    mockDebts,
-    mockReceivables,
-    mockInventory,
-    mockGoals,
+    useDemoData ? mockProducts : [],
+    useDemoData ? mockDebts : [],
+    useDemoData ? mockReceivables : [],
+    useDemoData ? mockInventory : [],
+    useDemoData ? mockGoals : [],
     referenceDate,
-  ), [transactions, customers, marketingMetrics, referenceDate]);
+  ), [transactions, customers, marketingMetrics, referenceDate, useDemoData]);
 
   const metrics = useMemo(() => calculator.calculateAll(), [calculator]);
 

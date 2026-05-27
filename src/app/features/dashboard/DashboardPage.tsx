@@ -3,6 +3,7 @@ import { DollarSign, TrendingUp, TrendingDown, BarChart2, Flame, Clock } from "l
 import { useMetrics } from "../../contexts/MetricsContext";
 import { useCurrency } from "../../contexts/CurrencyContext";
 import { useDateRange } from "../../contexts/DateRangeContext";
+import { formatMonthsOrEmpty } from "../../lib/displayValues";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { DeferredExportButton, KpiCard, RecentTransactionsCard, SummaryGrid } from "./components";
 import { useDashboardData } from "./hooks";
@@ -43,6 +44,7 @@ export function Dashboard() {
   const { format } = useCurrency();
   const { dateRange, comparisonRange } = useDateRange();
   const [chartMode, setChartMode] = useState<"line" | "candle">("line");
+  const hasTransactions = transactions.length > 0;
 
   const {
     periodMetrics,
@@ -113,8 +115,8 @@ export function Dashboard() {
         <KpiCard
           icon={Clock}
           label="Runway estime"
-          value={`${periodRunway.toFixed(1)} mois`}
-          trend={metrics.cashRisk?.message}
+          value={formatMonthsOrEmpty(periodRunway, hasTransactions)}
+          trend={hasTransactions ? metrics.cashRisk?.message : undefined}
           trendUp={periodRunway >= 6}
         />
       </div>

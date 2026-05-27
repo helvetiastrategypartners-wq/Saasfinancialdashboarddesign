@@ -4,6 +4,7 @@ import { useCurrency } from "../../contexts/CurrencyContext";
 import { GlassCard } from "../../components/ui/GlassCard";
 import { PageHeader } from "../../components/ui/PageHeader";
 import { StatCard } from "../../components/ui/StatCard";
+import { EMPTY_DATA_LABEL, formatMonthsOrEmpty, formatPercentOrEmpty, formatRatioOrEmpty, hasAnyData } from "../../lib/displayValues";
 import { ExpenseVariationCard, LeverageGauge, ReportInsightsSection, SummaryCard } from "./components";
 import { useReportsData } from "./hooks";
 
@@ -21,8 +22,12 @@ function ChartSectionFallback() {
 }
 
 export function Reports() {
-  const { metrics, calculator } = useMetrics();
+  const { metrics, calculator, customers, marketingMetrics, transactions } = useMetrics();
   const { format } = useCurrency();
+  const hasFinancialData = transactions.length > 0;
+  const hasCustomerData = customers.length > 0;
+  const hasMarketingData = marketingMetrics.length > 0;
+  const hasAnyBusinessData = hasAnyData(transactions, customers, marketingMetrics);
 
   const {
     revenueGrowth,
@@ -57,16 +62,16 @@ export function Reports() {
         <div className="grid grid-cols-3 gap-6">
           <SummaryCard label="Revenu mensuel" value={format(metrics.monthlyRevenue)} trend={revenueTrendLabel} trendPositive={revenueGrowth >= 0} />
           <SummaryCard label="Depenses mensuelles" value={format(metrics.monthlyExpenses)} trend={expenseTrendLabel} trendPositive={expenseVariation <= 0} />
-          <SummaryCard label="Cashflow net" value={format(metrics.netCashflow)} trend={cashflowPositive ? "Positif ce mois-ci" : "Negatif ce mois-ci"} trendPositive={cashflowPositive} />
+          <SummaryCard label="Cashflow net" value={format(metrics.netCashflow)} trend={hasFinancialData ? (cashflowPositive ? "Positif ce mois-ci" : "Negatif ce mois-ci") : "Donnees vides"} trendPositive={cashflowPositive} />
         </div>
       </section>
 
       <section>
         <h2 className="text-2xl font-semibold text-foreground mb-4">Sante financiere</h2>
         <div className="grid grid-cols-4 gap-6">
-          <StatCard label="Marge brute" value={format(metrics.grossMargin)} description={`${metrics.grossMarginPercent.toFixed(2)}% des revenus`} />
+          <StatCard label="Marge brute" value={format(metrics.grossMargin)} description={metrics.monthlyRevenue > 0 ? `${metrics.grossMarginPercent.toFixed(2)}% des revenus` : "Donnees vides"} />
           <StatCard label="Burn rate" value={format(metrics.burnRate)} description="Moy. 3 derniers mois" />
-          <StatCard label="Runway" value={`${metrics.runway.toFixed(1)} mois`} description={metrics.cashRisk?.message} alert={metrics.runway < 6} />
+          <StatCard label="Runway" value={formatMonthsOrEmpty(metrics.runway, hasFinancialData)} description={hasFinancialData ? metrics.cashRisk?.message : "Donnees vides"} alert={hasFinancialData && metrics.runway < 6} />
           <StatCard label="Cash disponible" value={format(metrics.cash)} description="Solde bancaire estime" />
         </div>
       </section>
@@ -76,8 +81,8 @@ export function Reports() {
         <div className="grid grid-cols-4 gap-6">
           <StatCard label="CAC" value={format(metrics.cac)} description="Cout d'acquisition client" />
           <StatCard label="Clients acquis" value={`${metrics.newCustomersMonth}`} description="Nouveaux ce mois" />
-          <StatCard label="Taux de conversion" value={`${(metrics.conversionRate ?? 0).toFixed(1)}%`} description="Leads vers clients" />
-          <StatCard label="ROI Marketing" value={`${(metrics.marketingROI ?? 0).toFixed(1)}%`} description="(Revenus - Depenses) / Depenses" highlight />
+          <StatCard label="Taux de conversion" value={(metrics.conversionRate ?? 0) > 0 ? `${(metrics.conversionRate ?? 0).toFixed(1)}%` : EMPTY_DATA_LABEL} description="Leads vers clients" />
+          <StatCard label="ROI Marketing" value={formatPercentOrEmpty(metrics.marketingROI, hasMarketingData)} description="(Revenus - Depenses) / Depenses" highlight={hasMarketingData} />
         </div>
       </section>
 
@@ -86,16 +91,16 @@ export function Reports() {
         <div className="grid grid-cols-4 gap-6">
           <StatCard label="ARPU" value={format(metrics.arpu)} description="Revenu / client actif" />
           <StatCard label="LTV" value={format(metrics.ltv)} description="Valeur a vie client" />
-          <StatCard label="LTV / CAC" value={`${metrics.ltvCacRatio.toFixed(1)}x`} description="Seuil sain >= 3x" highlight={metrics.ltvCacRatio >= 3} />
-          <StatCard label="Payback Period" value={`${metrics.paybackPeriod.toFixed(1)} mois`} description="Recuperation CAC" />
+          <StatCard label="LTV / CAC" value={formatRatioOrEmpty(metrics.ltvCacRatio, hasCustomerData && hasMarketingData)} description="Seuil sain >= 3x" highlight={hasCustomerData && hasMarketingData && metrics.ltvCacRatio >= 3} />
+          <StatCard label="Payback Period" value={formatMonthsOrEmpty(metrics.paybackPeriod, hasMarketingData)} description="Recuperation CAC" />
         </div>
       </section>
 
       <section>
         <h2 className="text-2xl font-semibold text-foreground mb-4">Retention clients</h2>
         <div className="grid grid-cols-4 gap-6">
-          <StatCard label="Churn rate" value={`${metrics.churnRate.toFixed(1)}%`} description="Clients perdus / clients debut" alert={metrics.churnRate > 5} />
-          <StatCard label="Retention" value={`${retentionRate.toFixed(1)}%`} description="100% - churn rate" highlight={retentionRate >= 95} />
+          <StatCard label="Churn rate" value={hasCustomerData ? `${metrics.churnRate.toFixed(1)}%` : EMPTY_DATA_LABEL} description="Clients perdus / clients debut" alert={hasCustomerData && metrics.churnRate > 5} />
+          <StatCard label="Retention" value={hasCustomerData ? `${retentionRate.toFixed(1)}%` : EMPTY_DATA_LABEL} description="100% - churn rate" highlight={hasCustomerData && retentionRate >= 95} />
           <StatCard label="MRR" value={format(metrics.mrr)} description="Revenu mensuel recurrent" />
           <StatCard label="Clients actifs" value={`${metrics.activeCustomers}`} description="Abonnements actifs" />
         </div>
@@ -109,10 +114,10 @@ export function Reports() {
             <LeverageGauge value={leverageRatio} />
           </GlassCard>
           <div className="grid grid-cols-2 gap-4">
-            <StatCard label="DSO" value={`${dso.toFixed(0)} j`} description="Delai de recouvrement" alert={dso > 45} />
-            <StatCard label="DIO" value={`${dio.toFixed(0)} j`} description="Jours de stock" />
-            <StatCard label="DPO" value={`${dpo.toFixed(0)} j`} description="Delai paiement fournisseurs" />
-            <StatCard label="CCC" value={`${ccc.toFixed(0)} j`} description="Cash Conversion Cycle" alert={ccc > 60} />
+            <StatCard label="DSO" value={hasAnyBusinessData && dso > 0 ? `${dso.toFixed(0)} j` : EMPTY_DATA_LABEL} description="Delai de recouvrement" alert={dso > 45} />
+            <StatCard label="DIO" value={hasAnyBusinessData && dio > 0 ? `${dio.toFixed(0)} j` : EMPTY_DATA_LABEL} description="Jours de stock" />
+            <StatCard label="DPO" value={hasFinancialData && dpo > 0 ? `${dpo.toFixed(0)} j` : EMPTY_DATA_LABEL} description="Delai paiement fournisseurs" />
+            <StatCard label="CCC" value={hasAnyBusinessData && ccc > 0 ? `${ccc.toFixed(0)} j` : EMPTY_DATA_LABEL} description="Cash Conversion Cycle" alert={ccc > 60} />
           </div>
         </div>
       </section>

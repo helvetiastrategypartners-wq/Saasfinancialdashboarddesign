@@ -5,7 +5,6 @@ import { motion } from "motion/react";
 import { toast } from "sonner";
 import { AnimatedBackground } from "../../components/AnimatedBackground";
 import { useAuth } from "../../contexts/AuthContext";
-import { supabase } from "../../../utils/supabase";
 
 const inputClass = "w-full rounded-lg border border-input bg-input-background pl-10 pr-11 py-3 text-sm outline-none transition focus:border-accent-red focus:ring-2 focus:ring-accent-red/20";
 
@@ -43,7 +42,7 @@ export function ChangePassword() {
       toast.error("Les mots de passe ne correspondent pas.");
       return;
     }
-    if (!supabase || !user) {
+    if (!user) {
       toast.error("Session introuvable.");
       return;
     }
@@ -52,14 +51,6 @@ export function ChangePassword() {
 
     try {
       await updatePassword(password);
-      const { error } = await supabase
-        .from("profiles")
-        .update({ must_change_password: false })
-        .eq("id", user.id);
-
-      if (error) {
-        throw error;
-      }
 
       toast.success("Mot de passe mis a jour.");
       navigate("/", { replace: true });

@@ -12,11 +12,11 @@
 
 create extension if not exists "pgcrypto";
 
-create schema if not exists private;
-revoke all on schema private from anon;
-revoke all on schema private from authenticated;
+create schema if not exists app_private;
+revoke all on schema app_private from anon;
+revoke all on schema app_private from authenticated;
 
-create or replace function private.current_company_id()
+create or replace function app_private.current_company_id()
 returns text
 language sql
 stable
@@ -29,8 +29,8 @@ as $$
   limit 1
 $$;
 
-grant usage on schema private to authenticated;
-grant execute on function private.current_company_id() to authenticated;
+grant usage on schema app_private to authenticated;
+grant execute on function app_private.current_company_id() to authenticated;
 
 -- Required by the temporary-password flow.
 alter table if exists public.profiles
@@ -134,6 +134,42 @@ begin
   end loop;
 end $$;
 
+-- Cleanup duplicate policies from the earlier private.current_company_id() draft.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'alerts',
+    'cohort_snapshots',
+    'customers',
+    'debts',
+    'goals',
+    'inventory_items',
+    'marketing_metrics',
+    'products',
+    'receivables',
+    'transactions'
+  ]
+  loop
+    if to_regclass(format('public.%I', table_name)) is not null then
+      execute format('drop policy if exists %I on public.%I', table_name || ' authenticated company select', table_name);
+      execute format('drop policy if exists %I on public.%I', table_name || ' authenticated company insert', table_name);
+      execute format('drop policy if exists %I on public.%I', table_name || ' authenticated company update', table_name);
+      execute format('drop policy if exists %I on public.%I', table_name || ' authenticated company delete', table_name);
+    end if;
+  end loop;
+
+  if to_regclass('public.companies') is not null then
+    drop policy if exists "companies authenticated own select" on public.companies;
+  end if;
+
+  if to_regclass('public.profiles') is not null then
+    drop policy if exists "profiles authenticated own select" on public.profiles;
+    drop policy if exists "profiles authenticated own update" on public.profiles;
+  end if;
+end $$;
+
 -- Tenant-owned tables: authenticated users can only access rows for their profile company.
 do $$
 declare
@@ -157,10 +193,10 @@ begin
   ]
   loop
     if to_regclass(format('public.%I', table_name)) is not null then
-      policy_select := table_name || ' authenticated company select';
-      policy_insert := table_name || ' authenticated company insert';
-      policy_update := table_name || ' authenticated company update';
-      policy_delete := table_name || ' authenticated company delete';
+      policy_select := table_name || '_select_own_company';
+      policy_insert := table_name || '_insert_own_company';
+      policy_update := table_name || '_update_own_company';
+      policy_delete := table_name || '_delete_own_company';
 
       execute format('alter table public.%I enable row level security', table_name);
       execute format('revoke all on table public.%I from anon', table_name);
@@ -172,22 +208,22 @@ begin
       execute format('drop policy if exists %I on public.%I', policy_delete, table_name);
 
       execute format(
-        'create policy %I on public.%I for select to authenticated using (auth.uid() is not null and company_id::text = private.current_company_id())',
+        'create policy %I on public.%I for select to authenticated using (company_id::text = app_private.current_company_id())',
         policy_select,
         table_name
       );
       execute format(
-        'create policy %I on public.%I for insert to authenticated with check (auth.uid() is not null and company_id::text = private.current_company_id())',
+        'create policy %I on public.%I for insert to authenticated with check (company_id::text = app_private.current_company_id())',
         policy_insert,
         table_name
       );
       execute format(
-        'create policy %I on public.%I for update to authenticated using (auth.uid() is not null and company_id::text = private.current_company_id()) with check (auth.uid() is not null and company_id::text = private.current_company_id())',
+        'create policy %I on public.%I for update to authenticated using (company_id::text = app_private.current_company_id()) with check (company_id::text = app_private.current_company_id())',
         policy_update,
         table_name
       );
       execute format(
-        'create policy %I on public.%I for delete to authenticated using (auth.uid() is not null and company_id::text = private.current_company_id())',
+        'create policy %I on public.%I for delete to authenticated using (company_id::text = app_private.current_company_id())',
         policy_delete,
         table_name
       );
@@ -203,12 +239,12 @@ begin
     revoke all on table public.companies from anon;
     grant select on table public.companies to authenticated;
 
-    drop policy if exists "companies authenticated own select" on public.companies;
-    create policy "companies authenticated own select"
+    drop policy if exists "companies_select_own" on public.companies;
+    create policy "companies_select_own"
       on public.companies
       for select
       to authenticated
-      using (auth.uid() is not null and id::text = private.current_company_id());
+      using (id::text = app_private.current_company_id());
   end if;
 end $$;
 
@@ -220,21 +256,21 @@ begin
     revoke all on table public.profiles from anon;
     grant select, update on table public.profiles to authenticated;
 
-    drop policy if exists "profiles authenticated own select" on public.profiles;
-    drop policy if exists "profiles authenticated own update" on public.profiles;
+    drop policy if exists "profiles_select_own" on public.profiles;
+    drop policy if exists "profiles_update_own" on public.profiles;
 
-    create policy "profiles authenticated own select"
+    create policy "profiles_select_own"
       on public.profiles
       for select
       to authenticated
-      using (auth.uid() is not null and id = auth.uid());
+      using (id = auth.uid());
 
-    create policy "profiles authenticated own update"
+    create policy "profiles_update_own"
       on public.profiles
       for update
       to authenticated
-      using (auth.uid() is not null and id = auth.uid())
-      with check (auth.uid() is not null and id = auth.uid());
+      using (id = auth.uid())
+      with check (id = auth.uid());
   end if;
 end $$;
 
@@ -267,4 +303,11 @@ begin
       execute format('grant select on table public.%I to authenticated', view_name);
     end if;
   end loop;
+end $$;
+
+do $$
+begin
+  if exists (select 1 from pg_namespace where nspname = 'private') then
+    drop function if exists private.current_company_id();
+  end if;
 end $$;

@@ -1,7 +1,8 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import type { Customer, MarketingMetrics, Transaction } from "@shared/types";
 import { mockTransactions, mockCustomers, mockMarketingMetrics } from "../lib/mockData";
-import { getActiveCompanyId } from "../../utils/company";
+import { isSupabaseConfigured } from "../../utils/supabase";
+import { useAuth } from "./AuthContext";
 import { useMetricsDataSync, useMetricsMutations } from "./metricsData";
 import { useMetricsDerivedState } from "./metricsDerived";
 import type { MetricsContextType } from "./metricsTypes";
@@ -9,10 +10,11 @@ import type { MetricsContextType } from "./metricsTypes";
 const MetricsContext = createContext<MetricsContextType | null>(null);
 
 export function MetricsProvider({ children }: { children: React.ReactNode }) {
-  const companyId = useMemo(() => getActiveCompanyId(), []);
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
-  const [customers, setCustomers] = useState<Customer[]>(mockCustomers);
-  const [marketingMetrics, setMarketingMetrics] = useState<MarketingMetrics[]>(mockMarketingMetrics);
+  const { companyId } = useAuth();
+  const useDemoData = useMemo(() => !isSupabaseConfigured(), []);
+  const [transactions, setTransactions] = useState<Transaction[]>(useDemoData ? mockTransactions : []);
+  const [customers, setCustomers] = useState<Customer[]>(useDemoData ? mockCustomers : []);
+  const [marketingMetrics, setMarketingMetrics] = useState<MarketingMetrics[]>(useDemoData ? mockMarketingMetrics : []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +31,7 @@ export function MetricsProvider({ children }: { children: React.ReactNode }) {
     transactions,
     customers,
     marketingMetrics,
+    useDemoData,
   });
 
   const mutations = useMetricsMutations({

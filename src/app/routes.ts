@@ -30,10 +30,10 @@ function isSuperAdminEmail(email?: string) {
 }
 
 function ProtectedLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, profileLoading, mustChangePassword } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || profileLoading) {
     return createElement(
       "div",
       { className: "min-h-screen grid place-items-center text-muted-foreground" },
@@ -49,7 +49,7 @@ function ProtectedLayout() {
     return createElement(Navigate, { to: "/super-admin", replace: true });
   }
 
-  if (user.user_metadata?.must_change_password === true && location.pathname !== "/change-password") {
+  if (mustChangePassword && location.pathname !== "/change-password") {
     return createElement(Navigate, { to: "/change-password", replace: true });
   }
 

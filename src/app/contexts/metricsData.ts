@@ -5,7 +5,7 @@ import { getSupabaseConfigError, isSupabaseConfigured, supabase } from "../../ut
 import type { MetricsBaseState } from "./metricsTypes";
 
 interface MetricsDataParams extends MetricsBaseState {
-  companyId: string;
+  companyId: string | null;
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   setMarketingMetrics: React.Dispatch<React.SetStateAction<MarketingMetrics[]>>;
@@ -36,6 +36,15 @@ export function useMetricsDataSync({
         return;
       }
 
+      if (!companyId) {
+        setTransactions([]);
+        setCustomers([]);
+        setMarketingMetrics([]);
+        setError("Aucune entreprise n'est liee a ce profil.");
+        setLoading(false);
+        return;
+      }
+
       try {
         const [transactionsResponse, customersResponse, marketingResponse] = await Promise.all([
           client.from("transactions").select("*").eq("company_id", companyId).order("date", { ascending: true }),
@@ -53,15 +62,9 @@ export function useMetricsDataSync({
           throw marketingResponse.error;
         }
 
-        if (transactionsResponse.data && transactionsResponse.data.length > 0) {
-          setTransactions(transactionsResponse.data as Transaction[]);
-        }
-        if (customersResponse.data && customersResponse.data.length > 0) {
-          setCustomers(customersResponse.data as Customer[]);
-        }
-        if (marketingResponse.data && marketingResponse.data.length > 0) {
-          setMarketingMetrics(marketingResponse.data as MarketingMetrics[]);
-        }
+        setTransactions((transactionsResponse.data ?? []) as Transaction[]);
+        setCustomers((customersResponse.data ?? []) as Customer[]);
+        setMarketingMetrics((marketingResponse.data ?? []) as MarketingMetrics[]);
 
         setError(null);
       } catch (error) {
@@ -89,7 +92,7 @@ function getMutationClient(setError: (value: string | null) => void) {
 }
 
 interface MetricsMutationsParams extends MetricsBaseState {
-  companyId: string;
+  companyId: string | null;
   setTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>;
   setCustomers: React.Dispatch<React.SetStateAction<Customer[]>>;
   setMarketingMetrics: React.Dispatch<React.SetStateAction<MarketingMetrics[]>>;
@@ -109,6 +112,11 @@ export function useMetricsMutations({
   const addTransaction = async (transaction: Omit<Transaction, "id" | "company_id" | "created_at" | "updated_at">) => {
     const now = new Date().toISOString();
     const previousTransactions = transactions;
+    if (!companyId) {
+      setError("Aucune entreprise n'est liee a ce profil.");
+      toast.error("Impossible d'enregistrer sans entreprise liee.");
+      return;
+    }
     const newTransaction: Transaction = {
       ...transaction,
       id: crypto.randomUUID(),
@@ -181,6 +189,11 @@ export function useMetricsMutations({
   const addCustomer = async (customer: Omit<Customer, "id" | "company_id" | "created_at" | "updated_at">) => {
     const now = new Date().toISOString();
     const previousCustomers = customers;
+    if (!companyId) {
+      setError("Aucune entreprise n'est liee a ce profil.");
+      toast.error("Impossible d'enregistrer sans entreprise liee.");
+      return;
+    }
     const newCustomer: Customer = {
       ...customer,
       id: crypto.randomUUID(),
@@ -253,6 +266,11 @@ export function useMetricsMutations({
   const addMarketingMetric = async (metric: Omit<MarketingMetrics, "id" | "company_id" | "created_at" | "updated_at">) => {
     const now = new Date().toISOString();
     const previousMarketingMetrics = marketingMetrics;
+    if (!companyId) {
+      setError("Aucune entreprise n'est liee a ce profil.");
+      toast.error("Impossible d'enregistrer sans entreprise liee.");
+      return;
+    }
     const newMetric: MarketingMetrics = {
       ...metric,
       id: crypto.randomUUID(),
