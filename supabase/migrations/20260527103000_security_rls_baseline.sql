@@ -18,15 +18,33 @@ revoke all on schema private from authenticated;
 
 create or replace function private.current_company_id()
 returns text
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select p.company_id
-  from public.profiles p
-  where p.id = auth.uid()
-  limit 1
+declare
+  current_company_id text;
+begin
+  if to_regclass('public.profiles') is null then
+    return null;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'company_id'
+  ) then
+    execute 'select company_id::text from public.profiles where id = auth.uid() limit 1'
+      into current_company_id;
+
+    return current_company_id;
+  end if;
+
+  return null;
+end
 $$;
 
 grant usage on schema private to authenticated;
@@ -109,10 +127,6 @@ set
 do $$
 declare
   table_name text;
-  policy_select text;
-  policy_insert text;
-  policy_update text;
-  policy_delete text;
 begin
   foreach table_name in array array[
     'alerts',
@@ -142,6 +156,10 @@ end $$;
 do $$
 declare
   table_name text;
+  policy_select text;
+  policy_insert text;
+  policy_update text;
+  policy_delete text;
 begin
   foreach table_name in array array[
     'alerts',
@@ -172,22 +190,22 @@ begin
       execute format('drop policy if exists %I on public.%I', policy_delete, table_name);
 
       execute format(
-        'create policy %I on public.%I for select to authenticated using (auth.uid() is not null and company_id = private.current_company_id())',
+        'create policy %I on public.%I for select to authenticated using (auth.uid() is not null and company_id::text = private.current_company_id())',
         policy_select,
         table_name
       );
       execute format(
-        'create policy %I on public.%I for insert to authenticated with check (auth.uid() is not null and company_id = private.current_company_id())',
+        'create policy %I on public.%I for insert to authenticated with check (auth.uid() is not null and company_id::text = private.current_company_id())',
         policy_insert,
         table_name
       );
       execute format(
-        'create policy %I on public.%I for update to authenticated using (auth.uid() is not null and company_id = private.current_company_id()) with check (auth.uid() is not null and company_id = private.current_company_id())',
+        'create policy %I on public.%I for update to authenticated using (auth.uid() is not null and company_id::text = private.current_company_id()) with check (auth.uid() is not null and company_id::text = private.current_company_id())',
         policy_update,
         table_name
       );
       execute format(
-        'create policy %I on public.%I for delete to authenticated using (auth.uid() is not null and company_id = private.current_company_id())',
+        'create policy %I on public.%I for delete to authenticated using (auth.uid() is not null and company_id::text = private.current_company_id())',
         policy_delete,
         table_name
       );
@@ -208,7 +226,7 @@ begin
       on public.companies
       for select
       to authenticated
-      using (auth.uid() is not null and id = private.current_company_id());
+      using (auth.uid() is not null and id::text = private.current_company_id());
   end if;
 end $$;
 

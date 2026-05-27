@@ -118,3 +118,21 @@ from information_schema.columns
 where table_schema = 'public'
   and table_name = 'profiles'
   and column_name = 'must_change_password';
+
+-- 6. Tenant helper prerequisites.
+select
+  'profiles.company_id exists' as check_name,
+  exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'company_id'
+  ) as ok;
+
+select
+  'private.current_company_id callable' as check_name,
+  private.current_company_id() is not null as has_company_for_current_user;
+
+-- If `profiles.company_id exists` is false, tenant policies will safely return
+-- no business rows until profiles are linked to companies.
