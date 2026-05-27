@@ -1,6 +1,6 @@
 # Fonctionnalités du projet SaaS Financial Dashboard Design — État réel HSPOS
 
-Dernière mise à jour : 26 mai 2026
+Dernière mise à jour : 27 mai 2026
 
 Ce document consolide l'état Notion avec l'état réel du code présent dans le projet.
 
@@ -35,7 +35,13 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 - Audit logs applicatifs pour actions Super Admin, dès que `admin_audit_logs` existe en base.
 - Exports PDF/CSV via serveur Express.
 - Documentation privacy et SQL de durcissement `supabase/privacy-hardening.sql`.
-- Coverage tests unitaires métier maintenue à 100% sur `metrics.test.ts`.
+- Coverage tests unitaires métier maintenue à 100% sur les suites `src/app/lib/metrics-tests/*`.
+- Runner de tests en cascade `scripts/run-tests.mjs` avec lancement global ou par domaine.
+- `MetricsCalculator` découpé par domaines métier dans `src/app/lib/metrics/*`.
+- Refacto maintenabilité des pages features :
+  - Settings découpé par panneau ;
+  - Marketing découpé en sections visuelles ;
+  - Invoices découpé en modales dédiées.
 
 ### 🔄 Partiel
 
@@ -230,6 +236,8 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
   - Émise ;
   - Remboursement.
 - Simulation `AI Extraction` en 4 étapes.
+- Formulaire facture extrait dans `InvoiceFormModal`.
+- Modale AI Extraction extraite dans `InvoiceAIModal`.
 - Numéro de facture généré depuis l'id transaction.
 - Synthèse montants payés, en attente, remboursements.
 
@@ -295,6 +303,7 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 - Graphiques marketing lazy-loaded.
 - Entonnoir leads -> MQL -> SQL -> clients.
 - Analyse par canal.
+- Sections `MarketingFunnelSection` et `MarketingRevenueByChannelCards` séparées de la page.
 - Table campagnes/métriques marketing avec édition/suppression.
 
 ### 🔄 Partiel
@@ -368,6 +377,12 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 - UI sécurité avec changement de mot de passe simulé, 2FA toggle et alertes connexion.
 - UI facturation avec plans, moyen de paiement simulé, historique et téléchargement `.txt`.
 - UI préférences : langue, devise, fuseau horaire, mode sombre, animations, sons.
+- Panneaux Settings séparés par fichier :
+  - `ProfileSettingsPanel` ;
+  - `NotificationSettingsPanel` ;
+  - `SecuritySettingsPanel` ;
+  - `BillingSettingsPanel` ;
+  - `PreferenceSettingsPanel`.
 
 ### 🔄 Partiel
 
@@ -456,7 +471,13 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 - Client Supabase externalisé dans `src/utils/supabase.ts`.
 - Types partagés dans `src/shared/types.ts`.
 - Schéma SQL de base dans `src/shared/schema.sql`.
-- Tests unitaires métier dans `src/app/lib/metrics.test.ts`.
+- Tests unitaires métier découpés dans `src/app/lib/metrics-tests/`.
+- Fixtures de tests centralisées dans `src/app/lib/metrics-tests/fixtures.ts`.
+- Runner de tests :
+  - `npm run test:all` ;
+  - `npm run test:coverage` ;
+  - `npm run test:check` ;
+  - `npm run test:runner -- <suite>`.
 
 ### 🔄 Partiel
 
@@ -504,3 +525,7 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 13. Export privacy / data subject request assisté.
 14. Amélioration investisseurs des exports PDF.
 15. Tests visuels et accessibilité.
+16. Continuer le refacto léger des grosses pages restantes :
+   - `ForecastPage.tsx` ;
+   - `ReportsPage.tsx` ;
+   - formulaires CRUD clients/transactions si le pattern se stabilise.
