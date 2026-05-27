@@ -121,10 +121,6 @@ where table_schema = 'public'
 
 -- 6. Tenant helper prerequisites.
 select
-  'companies table exists' as check_name,
-  to_regclass('public.companies') is not null as ok;
-
-select
   'profiles.company_id exists' as check_name,
   exists (
     select 1
@@ -137,6 +133,3 @@ select
 select
   'private.current_company_id callable' as check_name,
   private.current_company_id() is not null as has_company_for_current_user;
-
--- If `profiles.company_id exists` is false, tenant policies will safely return
--- no business rows until profiles are linked to companies.

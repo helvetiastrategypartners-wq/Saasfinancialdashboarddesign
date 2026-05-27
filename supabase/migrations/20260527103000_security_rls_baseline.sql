@@ -18,33 +18,15 @@ revoke all on schema private from authenticated;
 
 create or replace function private.current_company_id()
 returns text
-language plpgsql
+language sql
 stable
 security definer
 set search_path = ''
 as $$
-declare
-  current_company_id text;
-begin
-  if to_regclass('public.profiles') is null then
-    return null;
-  end if;
-
-  if exists (
-    select 1
-    from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'profiles'
-      and column_name = 'company_id'
-  ) then
-    execute 'select company_id::text from public.profiles where id = auth.uid() limit 1'
-      into current_company_id;
-
-    return current_company_id;
-  end if;
-
-  return null;
-end
+  select p.company_id::text
+  from public.profiles p
+  where p.id = auth.uid()
+  limit 1
 $$;
 
 grant usage on schema private to authenticated;
@@ -80,7 +62,7 @@ create index if not exists admin_audit_logs_target_company_id_idx
 
 create table if not exists public.privacy_requests (
   id uuid primary key default gen_random_uuid(),
-  company_id text,
+  company_id text references public.companies(id) on delete set null,
   requester_email text not null,
   requester_name text,
   request_type text not null check (request_type in ('access', 'rectification', 'erasure', 'restriction', 'portability', 'objection', 'other')),
@@ -92,24 +74,6 @@ create table if not exists public.privacy_requests (
   created_by uuid,
   updated_at timestamptz not null default now()
 );
-
-do $$
-begin
-  if to_regclass('public.companies') is not null
-    and not exists (
-      select 1
-      from pg_constraint
-      where conname = 'privacy_requests_company_id_fkey'
-        and conrelid = 'public.privacy_requests'::regclass
-    )
-  then
-    alter table public.privacy_requests
-      add constraint privacy_requests_company_id_fkey
-      foreign key (company_id)
-      references public.companies(id)
-      on delete set null;
-  end if;
-end $$;
 
 create index if not exists privacy_requests_company_id_idx
   on public.privacy_requests (company_id);
