@@ -80,7 +80,7 @@ create index if not exists admin_audit_logs_target_company_id_idx
 
 create table if not exists public.privacy_requests (
   id uuid primary key default gen_random_uuid(),
-  company_id text references public.companies(id) on delete set null,
+  company_id text,
   requester_email text not null,
   requester_name text,
   request_type text not null check (request_type in ('access', 'rectification', 'erasure', 'restriction', 'portability', 'objection', 'other')),
@@ -92,6 +92,24 @@ create table if not exists public.privacy_requests (
   created_by uuid,
   updated_at timestamptz not null default now()
 );
+
+do $$
+begin
+  if to_regclass('public.companies') is not null
+    and not exists (
+      select 1
+      from pg_constraint
+      where conname = 'privacy_requests_company_id_fkey'
+        and conrelid = 'public.privacy_requests'::regclass
+    )
+  then
+    alter table public.privacy_requests
+      add constraint privacy_requests_company_id_fkey
+      foreign key (company_id)
+      references public.companies(id)
+      on delete set null;
+  end if;
+end $$;
 
 create index if not exists privacy_requests_company_id_idx
   on public.privacy_requests (company_id);

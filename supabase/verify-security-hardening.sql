@@ -121,6 +121,10 @@ where table_schema = 'public'
 
 -- 6. Tenant helper prerequisites.
 select
+  'companies table exists' as check_name,
+  to_regclass('public.companies') is not null as ok;
+
+select
   'profiles.company_id exists' as check_name,
   exists (
     select 1
