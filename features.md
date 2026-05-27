@@ -35,6 +35,8 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 - Audit logs applicatifs pour actions Super Admin, dès que `admin_audit_logs` existe en base.
 - Exports PDF/CSV via serveur Express.
 - Documentation privacy et SQL de durcissement `supabase/privacy-hardening.sql`.
+- Migration RLS/security baseline versionnée dans `supabase/migrations/20260527103000_security_rls_baseline.sql`.
+- Requêtes de vérification post-migration dans `supabase/verify-security-hardening.sql`.
 - Coverage tests unitaires métier maintenue à 100% sur les suites `src/app/lib/metrics-tests/*`.
 - Runner de tests en cascade `scripts/run-tests.mjs` avec lancement global ou par domaine.
 - `MetricsCalculator` découpé par domaines métier dans `src/app/lib/metrics/*`.
@@ -46,7 +48,7 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 ### 🔄 Partiel
 
 - Connexion Supabase réelle limitée aux tables `transactions`, `customers`, `marketing_metrics` côté dashboard.
-- RLS/policies Supabase partiellement versionnées/documentées : plusieurs corrections ont été faites via SQL Editor, mais tout n'est pas encore matérialisé en migration complète.
+- RLS/policies Supabase désormais matérialisées en migration baseline, mais l'exécution doit être confirmée dans le projet Supabase.
 - Settings : interface complète, mais la plupart des actions sont simulées côté UI.
 - Privacy/nLPD/RGPD : base technique et documentation présentes, validation juridique/déploiement à faire.
 - Factures : module UI fonctionnel, mais pas encore de vraie table `invoices` branchée côté app.
@@ -416,14 +418,21 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
   - `admin_audit_logs` ;
   - `privacy_requests` ;
   - `data_retention_policies`.
+- Migration `supabase/migrations/20260527103000_security_rls_baseline.sql` :
+  - helper privé `private.current_company_id()` ;
+  - RLS multi-tenant par `profiles.company_id` ;
+  - révocation `anon` sur tables sensibles ;
+  - policies `authenticated` par entreprise ;
+  - vues `v_*` en `security_invoker`.
+- Script `supabase/verify-security-hardening.sql` pour contrôler RLS, grants, policies, vues et `profiles.must_change_password`.
 - Documentation `docs/privacy-readiness.md`.
 - RLS et vues Supabase durcies via SQL Editor lors de l'audit précédent.
 - Mots de passe/tokens/secrets non journalisés.
 
 ### 🔄 Partiel / ⚠️ À vérifier
 
-- Les migrations Supabase complètes ne reflètent pas encore toutes les corrections faites manuellement dans SQL Editor.
-- Le script privacy doit être exécuté dans Supabase pour activer les tables correspondantes.
+- La migration RLS/security baseline doit être exécutée et vérifiée dans Supabase.
+- Le script privacy reste conservé comme helper historique, mais la migration baseline reprend les tables privacy principales.
 - HTTPS/TLS dépend du déploiement.
 - La conformité nLPD/RGPD doit être validée juridiquement.
 
@@ -497,12 +506,8 @@ Ce document consolide l'état Notion avec l'état réel du code présent dans le
 
 ## Priorité Haute
 
-1. Exécuter et vérifier `supabase/privacy-hardening.sql` dans Supabase.
-2. Générer/commiter une migration Supabase complète de l'état réel :
-   - RLS ;
-   - policies ;
-   - vues `security_invoker` ;
-   - tables privacy.
+1. Exécuter `supabase/migrations/20260527103000_security_rls_baseline.sql` dans Supabase.
+2. Lancer `supabase/verify-security-hardening.sql` et conserver les résultats.
 3. Vérifier l'isolation multi-tenant avec deux utilisateurs/deux `company_id`.
 4. Mettre HTTPS/TLS en production pour Express.
 5. Ajouter tests QA/E2E sur :
